@@ -13,6 +13,7 @@
                     @cameras="onCameras"
                     @camera-change="onCameraChange"
                     @image-ready="onImageReady"
+                    @progress="onImageProgress"
             ></WebCam>
 
             <template  v-if="!notSupport">
@@ -68,6 +69,9 @@
             }
         },
         methods: {
+            onImageProgress(percent){
+                console.log(percent)
+            },
             onImageReady(image){
                 console.log(image);
             },
