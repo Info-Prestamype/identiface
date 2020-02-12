@@ -14,7 +14,9 @@
                     @camera-change="onCameraChange"
                     @image-ready="onImageReady"
                     @progress="onImageProgress"
+                    @preview="onPreviewImage"
             ></WebCam>
+            <img :src="img" alt="">
 
             <template  v-if="!notSupport">
                 <button @click="Start">Iniciar</button>
@@ -69,6 +71,9 @@
             }
         },
         methods: {
+            onPreviewImage(preview){
+                this.img = preview;
+            },
             onImageProgress(percent){
                 console.log(percent)
             },
@@ -76,7 +81,7 @@
                 console.log(image);
             },
             Capture() {
-                this.img = this.$refs.webcam.capture();
+                this.$refs.webcam.capture();
             },
             onStarted(stream) {
                 //console.log("On Started Event", stream);
