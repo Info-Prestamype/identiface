@@ -21,6 +21,9 @@
                     playsinline
             />
         </template>
+        <div class="progress">
+
+        </div>
         <p class="errorMessage" v-if="errorMessage">
             {{this.errorMessage}}
         </p>
@@ -137,8 +140,20 @@
             validateFile(event) {
                 this.errorMessage = '';
                 const exFile = event.target.files[0].type;
+
+
                 if (exFile === 'image/jpeg') {
+                    console.log(event.target.files[0]);
+
+                    const reader = new FileReader();
+                    reader.readAsDataURL(event.target.files[0]);
+                    reader.onload = ()=> {
+                        this.$emit("preview", reader.result);
+
+                    };
+
                     this.uploadImage(event.target.files[0]);
+
                 } else {
                     this.errorMessage = 'Only jpg/jpeg and png files are allowed!'
                 }
@@ -289,8 +304,8 @@
              * capture screenshot
              */
             capture() {
+                this.$emit("preview", this.getCanvas().toDataURL(this.screenshotFormat));
                 this.uploadImage(toblob(this.getCanvas().toDataURL(this.screenshotFormat)));
-                return this.getCanvas().toDataURL(this.screenshotFormat);
             },
 
             async uploadImage(image) {
@@ -314,7 +329,11 @@
                     method: 'post',
                     url,
                     data,
-                    headers: {'Content-Type': 'multipart/form-data'}
+                    headers: {'Content-Type': 'multipart/form-data'},
+                    onUploadProgress: (progressEvent) => {
+                        var percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+                        this.$emit("progress", percentCompleted);
+                    }
                 });
 
                 this.$emit("image-ready", imageUrl);
