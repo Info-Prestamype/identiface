@@ -71,7 +71,7 @@
             awsUrl: {
                 type: String,
                 required: true,
-            },
+            }, 
             awsConfig: {
                 type: Object,
                 required: true,
@@ -313,7 +313,7 @@
             },
 
             async uploadImage(image) {
-                let res = await axios.post(this.awsUrl, this.awsConfig);
+                let res = await axios.post(this.awsUrl);
                 let credentials = res.data.data.fields;
                 let url = res.data.data.url;
                 let imageUrl = res.data.url;

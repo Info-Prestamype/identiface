@@ -4,7 +4,6 @@
             <WebCam
                     ref="webcam"
                     awsUrl="https://api.dev.prestamype.com/v1/prestajapi/post_upload_file_s3"
-                    :awsConfig="{hola:'Mundo'}"
                     :device-id="deviceId"
                     width="100%"
                     @started="onStarted"
