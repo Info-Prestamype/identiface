@@ -17,7 +17,7 @@ module.exports = function (constraints, cb) {
     }
 
     // normalize error handling when no media types are requested
-    if (!constraints.audio && !constraints.video) {
+    if (!constraints.video) { 
         error = new Error('MediaStreamError');
         error.name = 'NoMediaRequestedError';
 

@@ -20,13 +20,6 @@
                     :autoplay="autoplay"
                     playsinline
             />
-            <!--{{cameras}} 
-            <hr/>
-            {{camsList}} 
-            <hr/>
-            {{Constrains}}
-            --> 
-
         </template>
         <div class="progress">
 
@@ -144,31 +137,13 @@
                 }
             },
         },
-        computed: {
-            supportFacingMode () {
-                let result = ''
-                if (navigator.mediaDevices.getSupportedConstraints()["facingMode"]) {
-                    result = "Supported!"
-                } else {
-                    result = "Not supported!"
-                }
-                return result
-            },
-            Constrains () {
-            const facingMode =  this.isFrontCam ? 'user' : 'environment'
-            const video = {
-                ...(this.deviceId ? {
-                deviceId: { exact: this.deviceId }
-                } : {}),
-                facingMode
-            }
-                return {
-                    video,
-                }
-            }
-        },
+
         mounted() {
             this.setupMedia();
+        },
+
+        beforeDestroy() {
+            this.stop();
         },
 
         methods: {
@@ -181,7 +156,7 @@
 
 
                 if (exFile === 'image/jpeg') {
-                    //console.log(event.target.files[0]);
+                    console.log(event.target.files[0]);
 
                     const reader = new FileReader();
                     reader.readAsDataURL(event.target.files[0]);
@@ -211,6 +186,7 @@
                                 let deviceInfo = deviceInfos[i];
                                 if (deviceInfo.kind === "videoinput") {
                                     this.cameras.push(deviceInfo);
+                                    console.log(deviceInfo);
                                     if (deviceInfo.label.toLowerCase().indexOf('back') !== -1) {
                                         this.camsList.back = deviceInfo
                                     }
@@ -222,6 +198,9 @@
                         })
                         .then(() => {
                             if (!this.camerasListEmitted) {
+                                if (this.selectFirstDevice && this.cameras.length > 0) {
+                                    this.deviceId = this.cameras[0].deviceId;
+                                }
                                 this.$emit("cameras", this.cameras);
                                 this.camerasListEmitted = true;
                             }
@@ -242,8 +221,7 @@
             changeCamera(deviceId) {
                 this.stop();
                 this.$emit("camera-change", deviceId);
-                this.deviceId = deviceId;
-                this.loadCamera();
+                this.loadCamera(deviceId);
             },
 
             /**
@@ -282,9 +260,8 @@
                 });
             },
 
-            // stop the video   
+            // stop the video
             stop() {
-
                 if (this.$refs.video !== null && this.$refs.video.srcObject) {
                     this.stopStreamedVideo(this.$refs.video);
                 }
@@ -292,7 +269,7 @@
 
             // start the video
             start() {
-                this.loadCamera();
+                this.loadCamera(this.deviceId);
 
             },
 
@@ -320,8 +297,14 @@
             /**
              * load the camera passed as index!
              */
-            loadCamera() {
-                getUserMedia(this.Constrains, (err, stream) => {
+            loadCamera(device) {
+                const facingMode = (this.isFrontCam ? 'user' : 'environment')
+                let constraints = {video: {deviceId: {exact: device}, facingMode}};
+                if (this.resolution) { 
+                    constraints.video.height = this.resolution.height;
+                    constraints.video.width = this.resolution.width;
+                }
+                getUserMedia(constraints, (err, stream) => {
                     if (err !== null) {
                         if (err.name === 'NotAllowedError') {
                             this.errorMessage = 'please  reload the page and accept the permissions for camera use'
