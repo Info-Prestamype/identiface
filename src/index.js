@@ -12,4 +12,4 @@ if (typeof window !== "undefined" && window.Vue) {
 export default plugin;
 const version = "__VERSION__";
 // Export all components too
-export { WebCam, version };
+export { WebCam, version }; 

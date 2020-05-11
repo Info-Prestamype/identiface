@@ -20,13 +20,28 @@
                     :autoplay="autoplay"
                     playsinline
             />
-            <!--{{cameras}} 
-            <hr/>
-            {{camsList}} 
-            <hr/>
-            {{Constrains}}
-            --> 
+            <canvas ref="canvas" 
+                :width="888"
+                :height="height"
+                >
+            </canvas>
 
+            <canvas ref="canvas2" 
+                :width="888"
+                :height="height"
+                >
+            </canvas>
+
+            <canvas ref="canvas3" 
+                :width="888"
+                :height="height"
+                >
+            </canvas>
+            <canvas ref="canvas4" 
+                :width="888"
+                :height="height"
+                >
+            </canvas>
         </template>
         <div class="progress">
 
@@ -39,7 +54,9 @@
 </template>
 
 <style scoped>
-
+    canvas{
+        display: block;
+    }
     .inputContent {
         position: relative;
         display: inline-block;
@@ -70,10 +87,11 @@
     import axios from 'axios'
     import getUserMedia from './getusermedia'
     import toblob from 'canvas-to-blob'
+    import * as cv from 'opencv.js'
+    import np from 'numjs'
 
     export default {
         name: "identiface",
-
         props: {
             awsUrl: {
                 type: String,
@@ -99,10 +117,6 @@
                 type: String,
                 default: "image/jpeg"
             },
-            selectFirstDevice: {
-                type: Boolean,
-                default: false
-            },
             deviceId: {
                 type: String,
                 default: null
@@ -119,7 +133,6 @@
                 }
             }
         },
-
         data() {
             return {
                 source: null,
@@ -129,9 +142,34 @@
                 camerasListEmitted: false,
                 cameras: [],
                 camsList: { back: null, front: null },
+               
+                //recognition Setup
+                w: 0,
+                h: 0,
+
+                mask: undefined, 
+                lowScalar: undefined, 
+                highScalar: undefined, 
+                low: undefined, 
+                high: undefined,
+                //detection
+                frame: undefined, 
+                cap: undefined,
+                colorRec: undefined,
+                inProcess: false,
+                roi: undefined, 
+                hsvRoi: undefined, 
+                trackWindow: undefined,
+                frame_hsv: undefined,
+                //face
+                frameray: undefined,
+                faces: undefined,
+                faceClass: undefined,
+                faces: undefined,
+
+
             };
         },
-
         watch: {
             deviceId: function (id) {
                 if (!this.notSupported) {
@@ -170,7 +208,6 @@
         mounted() {
             this.setupMedia();
         },
-
         methods: {
             /**
              * setup media
@@ -235,7 +272,6 @@
                     this.$emit('notsupported', err);
                 }
             },
-
             /**
              * change to a different camera stream, like front and back camera on phones
              */
@@ -257,14 +293,165 @@
                     // old broswers
                     this.source = window.HTMLMediaElement.srcObject(stream);
                 }
+
                 // Emit video start/live event
                 this.$refs.video.onloadedmetadata = () => {
                     this.$emit("video-live", stream);
-                };
 
+                    //prevent Opencv.js error.
+                    this.$refs.video.width = 888; 
+                    this.$refs.video.height = 500;
+                    setTimeout(this.setupCV, 0);
+                };
+                
                 this.$emit("started", stream);
             },
 
+            /**
+             * Detection
+             */
+            async setupCV() {
+                
+                if (this.frame == undefined) {
+                    this.cap = await new cv.VideoCapture(this.$refs.video);
+                    this.frame = await new cv.Mat(500, 888, cv.CV_8UC4);
+                    this.frameGray = new cv.Mat()
+                    this.faces = new cv.RectVector();
+                    
+                    let cascadeFile = 'haarcascade_frontalface_default.xml'
+                    this.createFileFromURL(cascadeFile, cascadeFile, (face) => {
+                        this.faceClass = face
+                    })
+                     
+                    console.log("cv setup complete.");
+                }
+                setTimeout(this.process, 0);
+            },
+            createFileFromURL(file, url, cb) {
+                axios.get('/models/haarcascades/' + url)
+                .then((resp) => {
+                    let rtn = cv.FS_createDataFile('/', file, resp.data, true, false, false)
+                    if (!rtn) return cb(null)
+                    let classifier = new cv.CascadeClassifier()
+                    rtn = classifier.load(file)
+                    if (!rtn) return cb(null) 
+                    cb(classifier)
+                    console.log('loaded', rtn, classifier.empty(), this.faceClass)
+
+                })
+                .catch((err) => {
+                    console.log('ERR',err);
+                })
+            },
+            process(){
+                this.cap.read(this.frame); 
+                
+                this.recognition();
+                
+                cv.imshow(this.$refs.canvas, this.frame);
+                setTimeout(this.process, 33); 
+                
+            },
+
+            recognition(){
+                if(!this.inProcess){
+
+
+                    this.inProcess = true;
+                }
+
+                let w = 888,
+                h = 500;
+                this.colorRec = new cv.Scalar(232, 81, 81, 255) 
+
+
+                //Def Region of interest 
+                this.trackWindow = new cv.Rect(w*0.2, h*0.2, w*0.8-w*0.2,h*0.8-h*0.2); 
+                //console.log(trackWindow.width,trackWindow.height)
+                this.roi = this.frame.roi(this.trackWindow);
+                //cv.imshow(this.$refs.canvas2, this.roi);
+
+                this.hsvRoi = new cv.Mat();
+                cv.cvtColor(this.roi, this.hsvRoi, cv.COLOR_RGB2HSV);
+
+
+                //Detect Face
+                cv.cvtColor(this.roi, this.frameGray , cv.COLOR_RGBA2GRAY, 0);
+                //cv.imshow(this.$refs.canvas2, this.frameGray); 
+                
+                
+
+                    
+                //Detect Color
+                let maskColor = new cv.Mat();
+
+                const lowScalar = new cv.Scalar(100, 100, 27);
+                const highScalar = new cv.Scalar(125, 255, 255);
+                let low = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), lowScalar);
+                let high = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), highScalar);
+                cv.inRange(this.hsvRoi, low, high, maskColor); 
+                
+                //Show detected Color
+                /*
+                let bitwise = new cv.Mat(); 
+                cv.bitwise_and(this.hsvRoi, this.hsvRoi, bitwise, maskColor)
+                cv.imshow(this.$refs.canvas3, bitwise);  
+                */
+
+                //Detect Contours
+                let contours = new cv.MatVector();
+                let hierarchy = new cv.Mat();
+
+                cv.findContours(maskColor, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+                 
+                for (let i = 0; i < contours.size(); ++i) {
+
+                    let cnt = contours.get(i);
+                    let area = cv.contourArea(cnt, false)
+                    
+
+                    if(area > 22000) {
+                        let rect = cv.boundingRect(cnt);
+                        let rectangleColor = new cv.Scalar(255, 0, 0);
+                        let point1 = new cv.Point(rect.x, rect.y);
+                        let point2 = new cv.Point(rect.x + rect.width, rect.y + rect.height);
+                        let msize = new cv.Size(69,69)
+                        cv.rectangle(this.roi, point1, point2, rectangleColor, 2, cv.LINE_AA, 0);
+                     
+                        if(rect.width > this.trackWindow.width-120 && rect.width < this.trackWindow.width-1
+                        ){
+                            if(this.faceClass !== undefined){
+                                
+                                this.faceClass.detectMultiScale(this.frameGray, this.faces, 1.7, 3, 0, msize, msize);
+
+                                for (let i=0;i<this.faces.size();i++) {
+                                    let face = this.faces.get(i); 
+                                    let point1 = new cv.Point(face.x, face.y); 
+                                    let point2 = new cv.Point(face.x + face.width, face.y + face.height);
+                                    cv.rectangle(this.roi, point1, point2, [255, 0, 0, 255]);
+                                   
+                                    if(face.y <= this.trackWindow.height*0.6 && face.x<=this.trackWindow.width*0.4){
+                                        this.colorRec = new cv.Scalar(45, 206, 17, 255);
+                                    } 
+                                }
+                            }   
+                        }                    
+                    }   
+                }
+
+                //Reference Rectangle
+                cv.rectangle(this.frame, new cv.Point(w*0.2, h*0.2), new cv.Point(w*0.8,h*0.8), this.colorRec, 2);
+                
+                //Region  de detección Foto Frontal Dni Azul
+                cv.rectangle(this.roi, new cv.Point(0, this.trackWindow.height*0.6), new cv.Point(this.trackWindow.width*0.4,0), this.colorRec, 2);
+
+                
+            },
+            detectFacePosition(){
+                
+            },
+            
+            
             /**
              * stop the selected streamed video to change camera
              */

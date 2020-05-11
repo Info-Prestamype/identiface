@@ -95,7 +95,7 @@
                 this.$refs.webcam.capture();
             },
             onStarted(stream) {
-                console.log("On Started Event", stream);
+                //console.log("On Started Event", stream);
             },
             onStopped(stream) {
                 console.log("On Stopped Event", stream);
