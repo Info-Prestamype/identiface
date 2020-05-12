@@ -24,6 +24,6 @@ phases:
             - echo Build started on `date`
             - npm run build
             # Sync assets with S3 bucket
-            - aws s3 sync demo/dist/ s3://$S3_BUCKET --cache-control "max-age=31536000" --delete
+            - aws s3 sync dist/ s3://$S3_BUCKET --cache-control "max-age=31536000" --delete
             # Invalidate cloudfront distribution
             - aws cloudfront create-invalidation --distribution-id $CF_DIST_ID --paths "/*"
