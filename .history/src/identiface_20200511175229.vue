@@ -351,7 +351,7 @@
 
         
 
-                setTimeout(this.process, 100); 
+                setTimeout(this.process, 180); 
                 
             },
 

@@ -150,9 +150,6 @@
                 highScalar: undefined, 
                 low: undefined, 
                 high: undefined,
-                contours: undefined,
-                hierarchy: undefined, 
-                rectangleColor: undefined,
                 //detection
                 frame: undefined, 
                 cap: undefined,
@@ -348,10 +345,7 @@
                 this.recognition();
                 
                 cv.imshow(this.$refs.canvas, this.frame);
-
-        
-
-                setTimeout(this.process, 100); 
+                setTimeout(this.process, 33); 
                 
             },
 
@@ -361,17 +355,11 @@
                     this.faces = new cv.RectVector();
                     this.hsvRoi = new cv.Mat();
                     this.maskColor = new cv.Mat();
-                    this.contours = new cv.MatVector();
-                    this.hierarchy = new cv.Mat();
-                    this.rectangleColor = new cv.Scalar(255, 0, 0);
-
-                    //min and max size of face detected for blue dni
-                    this.msize = new cv.Size(69,69)
-
                     //dni blue color
                     this.lowScalar = new cv.Scalar(100, 100, 27);
                     this.highScalar = new cv.Scalar(125, 255, 255);
-                        
+                    this.low = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), this.lowScalar);
+                    this.high = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), this.highScalar);
                     
                     let w = this.width,
                     h = this.height;
@@ -386,7 +374,7 @@
                 let w = 888,
                     h = 500;
 
-                this.colorRec = new cv.Scalar(232, 81, 81, 255);
+                this.colorRec = new cv.Scalar(232, 81, 81, 255) 
                 
                 //Def Region of interest 
                 this.roi = this.frame.roi(this.trackWindow);
@@ -398,43 +386,40 @@
                 cv.cvtColor(this.roi, this.frameGray , cv.COLOR_RGBA2GRAY, 0);
               
                 //Detect Color
-                this.low = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), this.lowScalar);
-                this.high = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), this.highScalar);
-                cv.inRange(this.hsvRoi, this.low, this.high, this.maskColor);
+                cv.inRange(this.hsvRoi, this.low, this.high, this.maskColor);  
                 
-
                 //Show detected Color
                 /*
                 let bitwise = new cv.Mat(); 
-                cv.bitwise_and(this.hsvRoi, this.hsvRoi, bitwise, this.maskColor)
-                cv.imshow(this.$refs.canvas3, bitwise);
+                cv.bitwise_and(this.hsvRoi, this.hsvRoi, bitwise, maskColor)
+                cv.imshow(this.$refs.canvas3, bitwise);  
                 */
-                
 
                 //Detect Contours
-                cv.findContours(this.maskColor, this.contours, this.hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-                 
-                for (let i = 0; i < this.contours.size(); ++i) {
-                    
-                    let cnt = this.contours.get(i);
-                    let area = cv.contourArea(cnt, false) 
+                let contours = new cv.MatVector();
+                let hierarchy = new cv.Mat();
 
-                    if(area > 15000) {
+                cv.findContours(this.maskColor, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+                 
+                for (let i = 0; i < contours.size(); ++i) {
+
+                    let cnt = contours.get(i);
+                    let area = cv.contourArea(cnt, false)
+                    
+
+                    if(area > 22000) {
                         let rect = cv.boundingRect(cnt);
+                        let rectangleColor = new cv.Scalar(255, 0, 0);
                         let point1 = new cv.Point(rect.x, rect.y);
                         let point2 = new cv.Point(rect.x + rect.width, rect.y + rect.height);
-                        cv.rectangle(this.roi, point1, point2, this.rectangleColor, 2, cv.LINE_AA, 0);
-                        
-                        console.log('width:'+ rect.width, this.trackWindow.width-20, this.trackWindow.width-80)
-                        //console.log('height:'+ rect.height, this.trackWindow.height-20)
-
-                        if(rect.width < this.trackWindow.width-1 &&
-                            rect.width > this.trackWindow.width-100 
-                            
+                        let msize = new cv.Size(69,69)
+                        cv.rectangle(this.roi, point1, point2, rectangleColor, 2, cv.LINE_AA, 0);
+                     
+                        if(rect.width > this.trackWindow.width-120 && rect.width < this.trackWindow.width-1
                         ){
                             if(this.faceClass !== undefined){
                                 
-                                this.faceClass.detectMultiScale(this.frameGray, this.faces, 1.7, 3, 0, this.msize, this.msize);
+                                this.faceClass.detectMultiScale(this.frameGray, this.faces, 1.7, 3, 0, msize, msize);
 
                                 for (let i=0;i<this.faces.size();i++) {
                                     let face = this.faces.get(i); 
@@ -442,7 +427,7 @@
                                     let point2 = new cv.Point(face.x + face.width, face.y + face.height);
                                     cv.rectangle(this.roi, point1, point2, [255, 0, 0, 255]);
                                    
-                                    if(face.y <= this.trackWindow.height*0.6 && face.x + face.width<=this.trackWindow.width*0.35){
+                                    if(face.y <= this.trackWindow.height*0.6 && face.x<=this.trackWindow.width*0.4){
                                         this.colorRec = new cv.Scalar(45, 206, 17, 255);
                                     } 
                                 }
@@ -452,13 +437,17 @@
                 }
 
                 //Reference Rectangle
-                cv.rectangle(this.frame, new cv.Point(this.width*0.2, this.height*0.2), new cv.Point(this.width*0.8,this.height*0.8), this.colorRec, 2);
+                cv.rectangle(this.frame, new cv.Point(w*0.2, h*0.2), new cv.Point(w*0.8,h*0.8), this.colorRec, 2);
                 
                 //Region  de detección Foto Frontal Dni Azul
-                cv.rectangle(this.roi, new cv.Point(0, this.trackWindow.height*0.6), new cv.Point(this.trackWindow.width*0.35,0), this.colorRec, 2);
+                cv.rectangle(this.roi, new cv.Point(0, this.trackWindow.height*0.6), new cv.Point(this.trackWindow.width*0.4,0), this.colorRec, 2);
 
                 
             },
+            detectFacePosition(){
+                
+            },
+            
             
             /**
              * stop the selected streamed video to change camera

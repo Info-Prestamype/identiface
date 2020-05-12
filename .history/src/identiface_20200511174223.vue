@@ -351,7 +351,7 @@
 
         
 
-                setTimeout(this.process, 100); 
+                setTimeout(this.process, 33); 
                 
             },
 
@@ -442,7 +442,7 @@
                                     let point2 = new cv.Point(face.x + face.width, face.y + face.height);
                                     cv.rectangle(this.roi, point1, point2, [255, 0, 0, 255]);
                                    
-                                    if(face.y <= this.trackWindow.height*0.6 && face.x + face.width<=this.trackWindow.width*0.35){
+                                    if(face.y <= this.trackWindow.height*0.6 && face.x + face.width<=this.trackWindow.width*0.4){
                                         this.colorRec = new cv.Scalar(45, 206, 17, 255);
                                     } 
                                 }
@@ -455,7 +455,7 @@
                 cv.rectangle(this.frame, new cv.Point(this.width*0.2, this.height*0.2), new cv.Point(this.width*0.8,this.height*0.8), this.colorRec, 2);
                 
                 //Region  de detección Foto Frontal Dni Azul
-                cv.rectangle(this.roi, new cv.Point(0, this.trackWindow.height*0.6), new cv.Point(this.trackWindow.width*0.35,0), this.colorRec, 2);
+                cv.rectangle(this.roi, new cv.Point(0, this.trackWindow.height*0.6), new cv.Point(this.trackWindow.width*0.2,0), this.colorRec, 2);
 
                 
             },

@@ -348,10 +348,7 @@
                 this.recognition();
                 
                 cv.imshow(this.$refs.canvas, this.frame);
-
-        
-
-                setTimeout(this.process, 100); 
+                setTimeout(this.process, 33); 
                 
             },
 
@@ -386,7 +383,7 @@
                 let w = 888,
                     h = 500;
 
-                this.colorRec = new cv.Scalar(232, 81, 81, 255);
+                this.colorRec = new cv.Scalar(232, 81, 81, 255) 
                 
                 //Def Region of interest 
                 this.roi = this.frame.roi(this.trackWindow);
@@ -417,21 +414,16 @@
                 for (let i = 0; i < this.contours.size(); ++i) {
                     
                     let cnt = this.contours.get(i);
-                    let area = cv.contourArea(cnt, false) 
-
-                    if(area > 15000) {
+                    let area = cv.contourArea(cnt, false)
+                    
+                    console.log(area);
+                    if(area > 22000) {
                         let rect = cv.boundingRect(cnt);
                         let point1 = new cv.Point(rect.x, rect.y);
                         let point2 = new cv.Point(rect.x + rect.width, rect.y + rect.height);
                         cv.rectangle(this.roi, point1, point2, this.rectangleColor, 2, cv.LINE_AA, 0);
-                        
-                        console.log('width:'+ rect.width, this.trackWindow.width-20, this.trackWindow.width-80)
-                        //console.log('height:'+ rect.height, this.trackWindow.height-20)
-
-                        if(rect.width < this.trackWindow.width-1 &&
-                            rect.width > this.trackWindow.width-100 
-                            
-                        ){
+                         
+                        if(rect.width > this.trackWindow.width-120 && rect.width < this.trackWindow.width-1){
                             if(this.faceClass !== undefined){
                                 
                                 this.faceClass.detectMultiScale(this.frameGray, this.faces, 1.7, 3, 0, this.msize, this.msize);
@@ -442,7 +434,7 @@
                                     let point2 = new cv.Point(face.x + face.width, face.y + face.height);
                                     cv.rectangle(this.roi, point1, point2, [255, 0, 0, 255]);
                                    
-                                    if(face.y <= this.trackWindow.height*0.6 && face.x + face.width<=this.trackWindow.width*0.35){
+                                    if(face.y <= this.trackWindow.height*0.6 && face.x<=this.trackWindow.width*0.4){
                                         this.colorRec = new cv.Scalar(45, 206, 17, 255);
                                     } 
                                 }
@@ -452,13 +444,17 @@
                 }
 
                 //Reference Rectangle
-                cv.rectangle(this.frame, new cv.Point(this.width*0.2, this.height*0.2), new cv.Point(this.width*0.8,this.height*0.8), this.colorRec, 2);
+                cv.rectangle(this.frame, new cv.Point(w*0.2, h*0.2), new cv.Point(w*0.8,h*0.8), this.colorRec, 2);
                 
                 //Region  de detección Foto Frontal Dni Azul
-                cv.rectangle(this.roi, new cv.Point(0, this.trackWindow.height*0.6), new cv.Point(this.trackWindow.width*0.35,0), this.colorRec, 2);
+                cv.rectangle(this.roi, new cv.Point(0, this.trackWindow.height*0.6), new cv.Point(this.trackWindow.width*0.4,0), this.colorRec, 2);
 
                 
             },
+            detectFacePosition(){
+                
+            },
+            
             
             /**
              * stop the selected streamed video to change camera
