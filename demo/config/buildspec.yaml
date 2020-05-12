@@ -8,15 +8,18 @@ phases:
     install:
         runtime-versions:
             nodejs: 10
+        commands:
+            - echo Nothing to do in the install phase...
 
     pre_build:
         commands:
+            - pwd
             - echo Installing source NPM dependencies...
             - cd demo
             - npm install
     build:
         commands:
-            - cd demo
+            - pwd
             - echo Build started on `date`
             - npm run build
             # Sync assets with S3 bucket
