@@ -348,10 +348,11 @@
                 this.recognition();
                 
                 cv.imshow(this.$refs.canvas, this.frame);
+                cv.imshow(this.$refs.canvas2, this.hsvRoi);
 
         
 
-                setTimeout(this.process, 100); 
+                setTimeout(this.process, 70); 
                 
             },
 
