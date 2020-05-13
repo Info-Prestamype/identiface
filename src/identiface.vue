@@ -368,7 +368,7 @@
 
                     //dni blue color
                     this.lowScalar = new cv.Scalar(80, 100, 20);
-                    this.highScalar = new cv.Scalar(100, 255, 255);
+                    this.highScalar = new cv.Scalar(100, 200, 255);
                         
                     
                     let w = this.width,
