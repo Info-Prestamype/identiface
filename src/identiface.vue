@@ -350,9 +350,8 @@
                 cv.imshow(this.$refs.canvas, this.frame);
                 cv.imshow(this.$refs.canvas2, this.hsvRoi);
 
-        
 
-                setTimeout(this.process, 70); 
+                setTimeout(this.process, 100); 
                 
             },
 
@@ -370,8 +369,8 @@
                     this.msize = new cv.Size(69,69)
 
                     //dni blue color
-                    this.lowScalar = new cv.Scalar(100, 100, 27);
-                    this.highScalar = new cv.Scalar(125, 255, 255);
+                    this.lowScalar = new cv.Scalar(80, 100, 20);
+                    this.highScalar = new cv.Scalar(100, 200, 255);
                         
                     
                     let w = this.width,
@@ -405,11 +404,11 @@
                 
 
                 //Show detected Color
-                /*
+                
                 let bitwise = new cv.Mat(); 
                 cv.bitwise_and(this.hsvRoi, this.hsvRoi, bitwise, this.maskColor)
                 cv.imshow(this.$refs.canvas3, bitwise);
-                */
+                
                 
 
                 //Detect Contours
