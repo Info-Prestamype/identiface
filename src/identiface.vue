@@ -456,7 +456,7 @@
 
                         
                         if(rect.width < this.trackWindow.width-1 &&
-                            rect.width > this.trackWindow.width-20
+                            rect.width > this.trackWindow.width-40
             
                         ){
                             if(this.faceClass !== undefined){
