@@ -27,6 +27,8 @@
             </canvas>
             <canvas ref="canvas2" class="canvasroi">
             </canvas>
+             <canvas ref="canvas3" class="canvasroi">
+            </canvas>
             <div v-show="reading" class="reading">
                 Leyendo imagen...
             </div>
@@ -62,7 +64,7 @@
         display: block;
     }
 
-    video{display: none;}
+    
     .inputContent {
         position: relative;
         display: inline-block;
@@ -206,10 +208,10 @@
             Constrains () {
                 const facingMode =  this.isFrontCam ? 'user' : 'environment'
                 const video = {
-                    ...(this.deviceId ? {
-                    deviceId: { exact: this.deviceId }
-                    } : {}),
-                    facingMode
+                    ...(this.deviceId ? {deviceId: { exact: this.deviceId }} : {}), 
+                    facingMode,
+                    width: { ideal: this.resolution.width },
+                    height: { ideal: this.resolution.height } 
                 }
                 return {
                     video,
@@ -362,7 +364,6 @@
                     this.recognition();
                     cv.imshow(this.$refs.canvas, this.frame);
                     //delete instancied every frame
-                    console.log('enter');
 
                     setTimeout(this.process, 60);
                 }
@@ -384,7 +385,7 @@
                     this.rectangleColor = new cv.Scalar(255, 0, 0);
 
                     //min and max size of face detected for blue dni
-                    this.msize = new cv.Size(69,69)
+                    this.msize = new cv.Size(120,120)
 
                     //dni blue color
                     this.lowScalar = new cv.Scalar(80, 100, 20);
@@ -398,7 +399,7 @@
                     let w = this.width,
                     h = this.height;
                 
-                    this.trackWindow = new cv.Rect(w*0.2, h*0.2, w*0.8-w*0.2,h*0.8-h*0.2); 
+                    this.trackWindow = new cv.Rect(w*0.1, h*0.1, w*0.9-w*0.1,h*0.9-h*0.1); 
 
                     
                     this.inProcess = true;
@@ -418,8 +419,8 @@
                 let dniArea = this.detectColor('normal');
                 let miloArea = this.detectColor('electronico');
 
-                console.log(dniArea.size(), miloArea.size())
-                //Show detected Color
+                //console.log(dniArea.size(), miloArea.size())
+                //Show detected Color 
 
                 if(dniArea.size() > miloArea.size()){
                      this.detectPhoto(this.contours,'normal');
@@ -427,14 +428,14 @@
                     this.detectPhoto(this.contoursMilo,'electronico');
                 }
 
-                /*
+                
                 let bitwise = new cv.Mat(); 
-                cv.bitwise_and(this.hsvRoi, this.hsvRoi, bitwise, this.maskColor)
-                cv.imshow(this.$refs.canvas3, bitwise);
-                */
+                cv.bitwise_and(this.hsvRoi, this.hsvRoi, bitwise,this.maskColor)
+                cv.imshow(this.$refs.canvas2, bitwise);
+                
                 
                 //Reference Rectangle
-                cv.rectangle(this.frame, new cv.Point(this.width*0.2, this.height*0.2), new cv.Point(this.width*0.8,this.height*0.8), this.colorRec, 2);
+                cv.rectangle(this.frame, new cv.Point(this.width*0.1, this.height*0.1), new cv.Point(this.width*0.9,this.height*0.9), this.colorRec, 2);
                 
                 
             },
@@ -445,16 +446,17 @@
                     
                     let cnt = contours.get(i);
                     let area = cv.contourArea(cnt, false); 
+                    console.log(area)
 
                     if(area > 15000) {
                         let rect = cv.boundingRect(cnt);
                         let point1 = new cv.Point(rect.x, rect.y);
                         let point2 = new cv.Point(rect.x + rect.width, rect.y + rect.height);
                         cv.rectangle(this.roi, point1, point2, this.rectangleColor, 2, cv.LINE_AA, 0);
-                    
+
                         
                         if(rect.width < this.trackWindow.width-1 &&
-                            rect.width > this.trackWindow.width-80
+                            rect.width > this.trackWindow.width-20
             
                         ){
                             if(this.faceClass !== undefined){
@@ -462,6 +464,7 @@
                                 if(type === 'normal'){
                                     let rect = new cv.Rect(0, 0, this.trackWindow.width*0.35,this.trackWindow.height*0.6);
                                     let roiFaceNormal = this.roi.roi(rect);
+                                    
 
                                     cv.cvtColor(roiFaceNormal, this.frameGray , cv.COLOR_RGBA2GRAY, 0);
     
