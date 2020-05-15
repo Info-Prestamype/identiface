@@ -78,6 +78,10 @@
         opacity: 0;
     }
 
+    video{
+        display: none;
+    }
+
     .inputcustom {
         position: absolute;
         top: 0;
@@ -456,7 +460,7 @@
 
                         
                         if(rect.width < this.trackWindow.width-1 &&
-                            rect.width > this.trackWindow.width-40
+                            rect.width > this.trackWindow.width-80
             
                         ){
                             if(this.faceClass !== undefined){
