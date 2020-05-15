@@ -18,6 +18,7 @@
                     @image-ready="onImageReady" 
                     @progress="onImageProgress"
                     @preview="onPreviewImage"
+                    @recognition="OnRecognition"
             ></WebCam>
             <img :src="img" alt="">
             {{error}}
@@ -29,6 +30,12 @@
                 <hr/>
                 <label><input type="checkbox" v-model="frontCamera">front Camera</label>
             </template>
+
+            <div class="textRecognized">
+                {{
+                    textOfDni
+                }}
+            </div>
         
         </template>
 
@@ -56,6 +63,7 @@
                 camera: null,
                 frontCamera: true,
                 deviceId: null,
+                textOfDni:{},
                 devices: []
             };
         },
@@ -85,6 +93,9 @@
         methods: {
             onPreviewImage(preview){
                 this.img = preview;
+            },
+            OnRecognition(text){
+                this.textOfDni = text
             },
             onImageProgress(percent){
                 console.log(percent)

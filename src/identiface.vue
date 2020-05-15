@@ -25,23 +25,11 @@
                 :height="height"
                 >
             </canvas>
-
-            <canvas ref="canvas2" 
-                :width="width"
-                :height="height"
-                >
+            <canvas ref="canvas2" class="canvasroi">
             </canvas>
-
-            <canvas ref="canvas3" 
-                :width="width"
-                :height="height"
-                >
-            </canvas>
-            <canvas ref="canvas4" 
-                :width="width"
-                :height="height"
-                >
-            </canvas>
+            <div v-show="reading" class="reading">
+                Leyendo imagen...
+            </div>
         </template>
         <div class="progress">
 
@@ -54,9 +42,27 @@
 </template>
 
 <style scoped>
+    .canvasroi{
+        display: none;
+    }
+    .reading{
+        position: fixed;
+        width: 100%;
+        height: 100%;
+        background: #000000cc;
+        top: 0;
+        display: flex;
+        justify-content: center;
+        color: #fff;
+        align-items: center;
+        font-size: 24px;
+    }
+
     canvas{
         display: block;
     }
+
+    video{display: none;}
     .inputContent {
         position: relative;
         display: inline-block;
@@ -88,7 +94,6 @@
     import getUserMedia from './getusermedia'
     import toblob from 'canvas-to-blob'
     import * as cv from 'opencv.js'
-    import np from 'numjs'
 
     export default {
         name: "identiface",
@@ -142,31 +147,36 @@
                 camerasListEmitted: false,
                 cameras: [],
                 camsList: { back: null, front: null },
-               
+                streaming: false,
+                reading: false,
                 //recognition Setup
 
                 maskColor: undefined, 
+                maskColorElec: undefined,
                 lowScalar: undefined, 
                 highScalar: undefined, 
+                lowScalarMilo: undefined, 
+                highScalarMilo: undefined, 
                 low: undefined, 
                 high: undefined,
                 contours: undefined,
+                contoursMilo: undefined, 
                 hierarchy: undefined, 
                 rectangleColor: undefined,
+                typeDocument: undefined,
                 //detection
                 frame: undefined, 
                 cap: undefined,
                 colorRec: undefined,
                 inProcess: false,
-                roi: undefined, 
+                roi: undefined,
+                roiDniElec: undefined, 
                 hsvRoi: undefined, 
                 trackWindow: undefined,
-                frame_hsv: undefined,
                 //face
-                frameray: undefined,
+                frameGray: undefined,
                 faces: undefined,
                 faceClass: undefined,
-                faces: undefined,
 
 
             };
@@ -194,13 +204,13 @@
                 return result
             },
             Constrains () {
-            const facingMode =  this.isFrontCam ? 'user' : 'environment'
-            const video = {
-                ...(this.deviceId ? {
-                deviceId: { exact: this.deviceId }
-                } : {}),
-                facingMode
-            }
+                const facingMode =  this.isFrontCam ? 'user' : 'environment'
+                const video = {
+                    ...(this.deviceId ? {
+                    deviceId: { exact: this.deviceId }
+                    } : {}),
+                    facingMode
+                }
                 return {
                     video,
                 }
@@ -225,7 +235,6 @@
                     reader.readAsDataURL(event.target.files[0]);
                     reader.onload = ()=> {
                         this.$emit("preview", reader.result);
-
                     };
 
                     this.uploadImage(event.target.files[0]);
@@ -234,9 +243,11 @@
                     this.errorMessage = 'Only jpg/jpeg and png files are allowed!'
                 }
             },
+
             setupMedia() {
                 this.loadCameras();
             },
+
             /**
              * load available cameras
              */
@@ -273,6 +284,7 @@
                     this.$emit('notsupported', err);
                 }
             },
+
             /**
              * change to a different camera stream, like front and back camera on phones
              */
@@ -300,8 +312,9 @@
                     this.$emit("video-live", stream);
 
                     //prevent Opencv.js error.
-                    this.$refs.video.width = 888; 
-                    this.$refs.video.height = 500;
+                    this.$refs.video.width = this.width;
+                    this.$refs.video.height = this.height; 
+                    this.streaming = true;
                     setTimeout(this.setupCV, 0);
                 };
                 
@@ -313,7 +326,7 @@
              */
             async setupCV() {
                 
-                if (this.frame == undefined) {
+                if (this.frame === undefined) {
                     this.cap = await new cv.VideoCapture(this.$refs.video);
                     this.frame = await new cv.Mat(this.height, this.width, cv.CV_8UC4);
                      
@@ -343,25 +356,30 @@
                 })
             },
             process(){
-                this.cap.read(this.frame); 
                 
-                this.recognition();
-                
-                cv.imshow(this.$refs.canvas, this.frame);
-                cv.imshow(this.$refs.canvas2, this.hsvRoi);
+                if(this.streaming){
+                    this.cap.read(this.frame); 
+                    this.recognition();
+                    cv.imshow(this.$refs.canvas, this.frame);
+                    //delete instancied every frame
+                    console.log('enter');
 
-
-                setTimeout(this.process, 100); 
+                    setTimeout(this.process, 60);
+                }
                 
             },
 
             recognition(){
+                
                 if(!this.inProcess){
+                    //instance one time
+
                     this.frameGray = new cv.Mat()
                     this.faces = new cv.RectVector();
                     this.hsvRoi = new cv.Mat();
                     this.maskColor = new cv.Mat();
                     this.contours = new cv.MatVector();
+                    this.contoursMilo = new cv.MatVector();
                     this.hierarchy = new cv.Mat();
                     this.rectangleColor = new cv.Scalar(255, 0, 0);
 
@@ -370,7 +388,11 @@
 
                     //dni blue color
                     this.lowScalar = new cv.Scalar(80, 100, 20);
-                    this.highScalar = new cv.Scalar(100, 200, 255);
+                    this.highScalar = new cv.Scalar(100, 255, 255);
+
+                    //milo green color
+                    this.lowScalarMilo = new cv.Scalar(40, 100, 20);
+                    this.highScalarMilo = new cv.Scalar(70, 255, 255);
                         
                     
                     let w = this.width,
@@ -383,9 +405,6 @@
                 
                 }
 
-                let w = 888,
-                    h = 500;
-
                 this.colorRec = new cv.Scalar(232, 81, 81, 255);
                 
                 //Def Region of interest 
@@ -394,69 +413,143 @@
                 //convert the roi to hsv
                 cv.cvtColor(this.roi, this.hsvRoi, cv.COLOR_RGB2HSV);
 
-                //convert the roi to grayscale 
-                cv.cvtColor(this.roi, this.frameGray , cv.COLOR_RGBA2GRAY, 0);
+  
               
-                //Detect Color
-                this.low = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), this.lowScalar);
-                this.high = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), this.highScalar);
-                cv.inRange(this.hsvRoi, this.low, this.high, this.maskColor);
-                
+                let dniArea = this.detectColor('normal');
+                let miloArea = this.detectColor('electronico');
 
+                console.log(dniArea.size(), miloArea.size())
                 //Show detected Color
-                
+
+                if(dniArea.size() > miloArea.size()){
+                     this.detectPhoto(this.contours,'normal');
+                }else{ 
+                    this.detectPhoto(this.contoursMilo,'electronico');
+                }
+
+                /*
                 let bitwise = new cv.Mat(); 
                 cv.bitwise_and(this.hsvRoi, this.hsvRoi, bitwise, this.maskColor)
                 cv.imshow(this.$refs.canvas3, bitwise);
+                */
+                
+                //Reference Rectangle
+                cv.rectangle(this.frame, new cv.Point(this.width*0.2, this.height*0.2), new cv.Point(this.width*0.8,this.height*0.8), this.colorRec, 2);
                 
                 
+            },
+            detectPhoto(contours, type){
+       
 
-                //Detect Contours
-                cv.findContours(this.maskColor, this.contours, this.hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-                 
-                for (let i = 0; i < this.contours.size(); ++i) {
+                for (let i = 0; i < contours.size(); ++i) {
                     
-                    let cnt = this.contours.get(i);
-                    let area = cv.contourArea(cnt, false) 
+                    let cnt = contours.get(i);
+                    let area = cv.contourArea(cnt, false); 
 
                     if(area > 15000) {
                         let rect = cv.boundingRect(cnt);
                         let point1 = new cv.Point(rect.x, rect.y);
                         let point2 = new cv.Point(rect.x + rect.width, rect.y + rect.height);
                         cv.rectangle(this.roi, point1, point2, this.rectangleColor, 2, cv.LINE_AA, 0);
+                    
                         
-                        console.log('width:'+ rect.width, this.trackWindow.width-20, this.trackWindow.width-80)
-                        //console.log('height:'+ rect.height, this.trackWindow.height-20)
-
                         if(rect.width < this.trackWindow.width-1 &&
-                            rect.width > this.trackWindow.width-100 
-                            
+                            rect.width > this.trackWindow.width-80
+            
                         ){
                             if(this.faceClass !== undefined){
                                 
-                                this.faceClass.detectMultiScale(this.frameGray, this.faces, 1.7, 3, 0, this.msize, this.msize);
+                                if(type === 'normal'){
+                                    let rect = new cv.Rect(0, 0, this.trackWindow.width*0.35,this.trackWindow.height*0.6);
+                                    let roiFaceNormal = this.roi.roi(rect);
 
-                                for (let i=0;i<this.faces.size();i++) {
-                                    let face = this.faces.get(i); 
-                                    let point1 = new cv.Point(face.x, face.y); 
-                                    let point2 = new cv.Point(face.x + face.width, face.y + face.height);
-                                    cv.rectangle(this.roi, point1, point2, [255, 0, 0, 255]);
-                                   
-                                    if(face.y <= this.trackWindow.height*0.6 && face.x + face.width<=this.trackWindow.width*0.35){
-                                        this.colorRec = new cv.Scalar(45, 206, 17, 255);
-                                    } 
+                                    cv.cvtColor(roiFaceNormal, this.frameGray , cv.COLOR_RGBA2GRAY, 0);
+    
+                                    this.faceClass.detectMultiScale(this.frameGray, this.faces, 1.7, 3, 0, this.msize, this.msize);
+
+                                    for (let i=0;i<this.faces.size();i++) {
+                                        let face = this.faces.get(i); 
+                                        let point1 = new cv.Point(face.x, face.y); 
+                                        let point2 = new cv.Point(face.x + face.width, face.y + face.height);
+                                        
+                                        if(face.y <= this.trackWindow.height*0.6 && face.x + face.width<=this.trackWindow.width*0.35){
+                                            this.colorRec = new cv.Scalar(45, 206, 17, 255);
+
+                                            this.typeDocument = 'normal'
+                                            this.detected();
+                                        }
+                                    }
                                 }
+                                
                             }   
                         }                    
                     }   
                 }
+            },
+            clearAll(){
+                this.streaming = false;
+                //Clear all Instances
+                this.inProcess = false;
+                this.contours.delete()
+                //this.faceClass.delete()
+                this.frameGray.delete()
+                this.hsvRoi.delete()
+                this.maskColor.delete()
+                this.hierarchy.delete()
+                this.faces.delete()
 
-                //Reference Rectangle
-                cv.rectangle(this.frame, new cv.Point(this.width*0.2, this.height*0.2), new cv.Point(this.width*0.8,this.height*0.8), this.colorRec, 2);
+            },
+        
+            async detected(){
+                cv.imshow(this.$refs.canvas2, this.roi);
+                this.streaming = false;
+                this.reading = true;
+                const canvasImage = this.$refs.canvas2.toDataURL().split(',')[1]
+                const body = {
+                    image: canvasImage,
+                    type: this.typeDocument
+                }
                 
-                //Region  de detección Foto Frontal Dni Azul
-                cv.rectangle(this.roi, new cv.Point(0, this.trackWindow.height*0.6), new cv.Point(this.trackWindow.width*0.35,0), this.colorRec, 2);
+                try{
+                    let res = await axios.post('https://wcns07epuc.execute-api.us-east-1.amazonaws.com/Prod/textdetect', body);
+                    this.reading = false;
+                    this.$emit("recognition", res);
+                }catch{
+                    this.reading = false;
+                }
+                
+            },
+            async sendToRecognition(){
+                
+                
+            },
+            detectColor(type){
 
+                if(type == 'normal'){
+                    //Detect Color
+                    this.low = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), this.lowScalar);
+                    this.high = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), this.highScalar);
+                    cv.inRange(this.hsvRoi, this.low, this.high, this.maskColor);
+
+                    //Detect Contours
+                    cv.findContours(this.maskColor, this.contours, this.hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+                    return this.contours;
+                }
+
+                if(type == 'electronico'){
+                     //Detect Color
+                    this.low = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), this.lowScalarMilo);
+                    this.high = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), this.highScalarMilo);
+                    cv.inRange(this.hsvRoi, this.low, this.high, this.maskColor);
+
+                    
+                    //Detect Contours
+                    cv.findContours(this.maskColor, this.contoursMilo, this.hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+                    return this.contoursMilo;
+                    
+                }
+                
                 
             },
             
@@ -474,12 +567,15 @@
 
                     this.$refs.video.srcObject = null;
                     this.source = null;
-                });
+                });     
+                
+                this.clearAll();
+                
+    
             },
 
             // stop the video   
             stop() {
-
                 if (this.$refs.video !== null && this.$refs.video.srcObject) {
                     this.stopStreamedVideo(this.$refs.video);
                 }
@@ -489,13 +585,6 @@
             start() {
                 this.loadCamera();
 
-            },
-
-            // pause the video
-            pause() {
-                if (this.$refs.video !== null && this.$refs.video.srcObject) {
-                    this.$refs.video.pause();
-                }
             },
 
             // resume the video
