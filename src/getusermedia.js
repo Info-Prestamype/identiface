@@ -1,6 +1,5 @@
 // getUserMedia helper by @HenrikJoreteg used for navigator.getUserMedia shim
 
-
 module.exports = function (constraints, cb) {
     var error;
     var haveOpts = arguments.length === 2;
@@ -15,6 +14,7 @@ module.exports = function (constraints, cb) {
         cb = constraints;
         constraints = defaultOpts;
     }
+
 
     // normalize error handling when no media types are requested
     if (!constraints.video) { 

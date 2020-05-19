@@ -25,9 +25,9 @@
                 :height="height"
                 >
             </canvas>
-            <canvas ref="canvas2" class="canvasroi">
+            <canvas ref="canvas2">
             </canvas>
-             <canvas ref="canvas3" class="canvasroi">
+             <canvas ref="canvas3">
             </canvas>
             <div v-show="reading" class="reading">
                 Leyendo imagen...
@@ -77,11 +77,6 @@
         filter: alpha(opacity=0);
         opacity: 0;
     }
-
-    video{
-        display: none;
-    }
-
     .inputcustom {
         position: absolute;
         top: 0;
@@ -97,9 +92,13 @@
 
 <script>
     import axios from 'axios'
+    import adapter from 'webrtc-adapter';
     import getUserMedia from './getusermedia'
     import toblob from 'canvas-to-blob'
     import * as cv from 'opencv.js'
+    import * as imutils from 'imutils'
+    
+   
 
     export default {
         name: "identiface",
@@ -156,7 +155,6 @@
                 streaming: false,
                 reading: false,
                 //recognition Setup
-
                 maskColor: undefined, 
                 maskColorElec: undefined,
                 lowScalar: undefined, 
@@ -183,7 +181,14 @@
                 frameGray: undefined,
                 faces: undefined,
                 faceClass: undefined,
-
+                //New Version Performance
+                gray: undefined,
+                edged: undefined,
+                resized: undefined,
+                workFrame: undefined,
+                Contours: undefined,
+                filterContours: undefined,
+                Poly: undefined,
 
             };
         },
@@ -331,7 +336,6 @@
              * Detection
              */
             async setupCV() {
-                
                 if (this.frame === undefined) {
                     this.cap = await new cv.VideoCapture(this.$refs.video);
                     this.frame = await new cv.Mat(this.height, this.width, cv.CV_8UC4);
@@ -362,18 +366,86 @@
                 })
             },
             process(){
-                
+                let begin = Date.now();
                 if(this.streaming){
-                    this.cap.read(this.frame); 
-                    this.recognition();
-                    cv.imshow(this.$refs.canvas, this.frame);
-                    //delete instancied every frame
-
-                    setTimeout(this.process, 60);
+                    this.cap.read(this.frame);
+                    
+                    //this.recognition();
+                    this.edgeDetection();
+                    //cv.imshow(this.$refs.canvas2, this.frameSize);
+                
+                    let delay = 1000/30 - (Date.now() - begin);
+                    setTimeout(this.process, delay);
                 }
                 
             },
+            edgeDetection(){
+                if(!this.inProcess){
+                    this.inProcess = true;
+                    this.workFrame = new cv.Mat();
+                    this.gray = new cv.Mat();
+                    this.edged = new cv.Mat();
+                    this.hierarchy = new cv.Mat();
+                    this.Contours = new cv.MatVector();
+                    
+                }
 
+                this.filterContours = new cv.MatVector();
+                this.Poly = new cv.MatVector();
+
+                let dsize = new cv.Size(this.width*0.5, this.height*0.5);
+                let ksize = new cv.Size( 5, 5);
+
+                cv.resize(this.frame, this.workFrame, dsize, 0, 0, cv.INTER_AREA);
+
+                
+                cv.cvtColor(this.workFrame, this.gray, cv.COLOR_BGR2GRAY);
+                cv.GaussianBlur(this.gray, this.gray, ksize, 0, 0, cv.BORDER_DEFAULT); 
+                cv.Canny(this.gray, this.edged, 30, 200, 3, false); 
+                
+                cv.findContours(this.edged, this.Contours, this.hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+                //Filtrar Por Area
+                for (let i = 0; i < this.Contours.size(); ++i) { 
+                    
+                    let cnt = this.Contours.get(i);
+                    let area = cv.contourArea(cnt, false);
+                    //console.log(area);
+                    console.log(area);
+                    //if(area > 50){
+                        this.filterContours.push_back(cnt) 
+                    //}
+                }
+
+                //Aproximar los contornos
+                for (let i = 0; i < this.filterContours.size(); ++i) {
+                    let tmp = new cv.Mat();
+                    let cnt = this.filterContours.get(i);
+                    let perimeter = cv.arcLength(cnt, true);
+
+                    cv.approxPolyDP(cnt, tmp, 150, false);
+                    //cv.convexHull(cnt, tmp, false, true);
+                    this.Poly.push_back(tmp);
+
+                    cnt.delete(); tmp.delete();
+                }
+
+                for (let i = 0; i < this.Poly.size(); ++i) {
+                    let color = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255),
+                                            Math.round(Math.random() * 255)); 
+                    cv.drawContours(this.gray, this.Poly, i, color, 3, 8, this.hierarchy, 0);
+                }
+
+               
+
+
+                cv.imshow(this.$refs.canvas, this.edged);
+                cv.imshow(this.$refs.canvas2, this.gray);
+
+                this.filterContours.delete();
+                this.Poly.delete();
+
+            },
             recognition(){
                 
                 if(!this.inProcess){
@@ -450,7 +522,7 @@
                     
                     let cnt = contours.get(i);
                     let area = cv.contourArea(cnt, false); 
-                    console.log(area)
+                    
 
                     if(area > 15000) {
                         let rect = cv.boundingRect(cnt);
@@ -524,10 +596,6 @@
                 }catch{
                     this.reading = false;
                 }
-                
-            },
-            async sendToRecognition(){
-                
                 
             },
             detectColor(type){
