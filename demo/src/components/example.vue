@@ -12,7 +12,7 @@
                     @started="onStarted"
                     @stopped="onStopped"
                     @error="onError"
-                    :resolution="{width:1280,height:720}"
+                    :resolution="{width:4096,height:2160}"
                     @cameras="onCameras"
                     @camera-change="onCameraChange"
                     @image-ready="onImageReady" 
