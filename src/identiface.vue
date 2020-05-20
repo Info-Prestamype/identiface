@@ -91,147 +91,147 @@
 </style>
 
 <script>
-    import axios from 'axios'
-    import adapter from 'webrtc-adapter';
-    import getUserMedia from './getusermedia'
-    import toblob from 'canvas-to-blob'
-    import * as cv from 'opencv.js'
-    import * as imutils from 'imutils'
-    
-   
+import axios from 'axios'
+import adapter from 'webrtc-adapter';
+import getUserMedia from './getusermedia'
+import toblob from 'canvas-to-blob'
+import * as cv from 'opencv.js'
+import * as imutils from 'imutils'
 
-    export default {
-        name: "identiface",
-        props: {
-            awsUrl: {
-                type: String,
-                required: true,
-            },
-            awsConfig: {
-                type: Object,
-                required: true,
-            },
-            width: {
-                type: [Number, String],
-                default: "100%"
-            },
-            height: {
-                type: [Number, String],
-                default: 500
-            },
-            autoplay: {
-                type: Boolean,
-                default: true
-            },
-            screenshotFormat: {
-                type: String,
-                default: "image/jpeg"
-            },
-            deviceId: {
-                type: String,
-                default: null
-            },
-            isFrontCam: {
-                type: Boolean,
-                default: true
-            },
-            resolution: {
-                type: Object,
-                default: null,
-                validator: value => {
-                    return value.height && value.width;
-                }
+
+
+export default {
+    name: "identiface",
+    props: {
+        awsUrl: {
+            type: String,
+            required: true,
+        },
+        awsConfig: {
+            type: Object,
+            required: true,
+        },
+        width: {
+            type: [Number, String],
+            default: "100%"
+        },
+        height: {
+            type: [Number, String],
+            default: 500
+        },
+        autoplay: {
+            type: Boolean,
+            default: true
+        },
+        screenshotFormat: {
+            type: String,
+            default: "image/jpeg"
+        },
+        deviceId: {
+            type: String,
+            default: null
+        },
+        isFrontCam: {
+            type: Boolean,
+            default: true
+        },
+        resolution: {
+            type: Object,
+            default: null,
+            validator: value => {
+                return value.height && value.width;
+            }
+        }
+    },
+    data() {
+        return {
+            source: null,
+            notSupported: false,
+            canvas: null,
+            errorMessage: '',
+            camerasListEmitted: false,
+            cameras: [],
+            camsList: { back: null, front: null },
+            streaming: false,
+            reading: false,
+            //recognition Setup
+            maskColor: undefined, 
+            maskColorElec: undefined,
+            lowScalar: undefined, 
+            highScalar: undefined, 
+            lowScalarMilo: undefined, 
+            highScalarMilo: undefined, 
+            low: undefined, 
+            high: undefined,
+            contours: undefined,
+            contoursMilo: undefined, 
+            hierarchy: undefined, 
+            rectangleColor: undefined,
+            typeDocument: undefined,
+            //detection
+            frame: undefined, 
+            cap: undefined,
+            colorRec: undefined,
+            inProcess: false,
+            roi: undefined,
+            roiDniElec: undefined, 
+            hsvRoi: undefined, 
+            trackWindow: undefined,
+            //face
+            frameGray: undefined,
+            faces: undefined,
+            faceClass: undefined,
+            //New Version Performance
+            gray: undefined,
+            edged: undefined,
+            resized: undefined,
+            workFrame: undefined,
+            Contours: new cv.MatVector(),
+            filterContours: undefined,
+            Poly: undefined,
+            screenContour: undefined
+        };
+    },
+    watch: {
+        deviceId: function (id) {
+            if (!this.notSupported) {
+                this.changeCamera(id);
             }
         },
-        data() {
+        isFrontCam: function (newValue, oldValue) {
+            if (newValue !== oldValue) {
+                this.changeFrontBack(newValue)
+            }
+        },
+    },
+    computed: {
+        supportFacingMode () {
+            let result = ''
+            if (navigator.mediaDevices.getSupportedConstraints()["facingMode"]) {
+                result = "Supported!"
+            } else {
+                result = "Not supported!"
+            }
+            return result
+        },
+        Constrains () {
+            const facingMode =  this.isFrontCam ? 'user' : 'environment'
+            const video = {
+                ...(this.deviceId ? {deviceId: { exact: this.deviceId }} : {}), 
+                facingMode,
+                width: { ideal: this.resolution.width },
+                height: { ideal: this.resolution.height } 
+            }
             return {
-                source: null,
-                notSupported: false,
-                canvas: null,
-                errorMessage: '',
-                camerasListEmitted: false,
-                cameras: [],
-                camsList: { back: null, front: null },
-                streaming: false,
-                reading: false,
-                //recognition Setup
-                maskColor: undefined, 
-                maskColorElec: undefined,
-                lowScalar: undefined, 
-                highScalar: undefined, 
-                lowScalarMilo: undefined, 
-                highScalarMilo: undefined, 
-                low: undefined, 
-                high: undefined,
-                contours: undefined,
-                contoursMilo: undefined, 
-                hierarchy: undefined, 
-                rectangleColor: undefined,
-                typeDocument: undefined,
-                //detection
-                frame: undefined, 
-                cap: undefined,
-                colorRec: undefined,
-                inProcess: false,
-                roi: undefined,
-                roiDniElec: undefined, 
-                hsvRoi: undefined, 
-                trackWindow: undefined,
-                //face
-                frameGray: undefined,
-                faces: undefined,
-                faceClass: undefined,
-                //New Version Performance
-                gray: undefined,
-                edged: undefined,
-                resized: undefined,
-                workFrame: undefined,
-                Contours: undefined,
-                filterContours: undefined,
-                Poly: undefined,
-
-            };
-        },
-        watch: {
-            deviceId: function (id) {
-                if (!this.notSupported) {
-                    this.changeCamera(id);
-                }
-            },
-            isFrontCam: function (newValue, oldValue) {
-                if (newValue !== oldValue) {
-                    this.changeFrontBack(newValue)
-                }
-            },
-        },
-        computed: {
-            supportFacingMode () {
-                let result = ''
-                if (navigator.mediaDevices.getSupportedConstraints()["facingMode"]) {
-                    result = "Supported!"
-                } else {
-                    result = "Not supported!"
-                }
-                return result
-            },
-            Constrains () {
-                const facingMode =  this.isFrontCam ? 'user' : 'environment'
-                const video = {
-                    ...(this.deviceId ? {deviceId: { exact: this.deviceId }} : {}), 
-                    facingMode,
-                    width: { ideal: this.resolution.width },
-                    height: { ideal: this.resolution.height } 
-                }
-                return {
-                    video,
-                }
+                video,
             }
-        },
-        mounted() {
-            this.setupMedia();
-        },
-        methods: {
-            /**
+        }
+    },
+    mounted() {
+        this.setupMedia();
+    },
+    methods: {
+        /**
              * setup media
              */
             validateFile(event) {
@@ -387,7 +387,7 @@
                     this.edged = new cv.Mat();
                     this.hierarchy = new cv.Mat();
                     this.Contours = new cv.MatVector();
-                    
+                    this.screenContour = new cv.Mat();
                 }
 
                 this.filterContours = new cv.MatVector();
@@ -401,47 +401,37 @@
                 
                 cv.cvtColor(this.workFrame, this.gray, cv.COLOR_BGR2GRAY);
                 cv.GaussianBlur(this.gray, this.gray, ksize, 0, 0, cv.BORDER_DEFAULT); 
-                cv.Canny(this.gray, this.edged, 30, 200, 3, false); 
-                
+                cv.Canny(this.gray, this.edged, 50, 50, 3, true); 
+ 
                 cv.findContours(this.edged, this.Contours, this.hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
-
-                //Filtrar Por Area
-                for (let i = 0; i < this.Contours.size(); ++i) { 
-                    
+                let areas = []
+                for(let i=0; i<this.Contours.size() ; i++) {
                     let cnt = this.Contours.get(i);
                     let area = cv.contourArea(cnt, false);
-                    //console.log(area);
-                    console.log(area);
-                    //if(area > 50){
-                        this.filterContours.push_back(cnt) 
-                    //}
+                    areas.push([area,i])
                 }
-
-                //Aproximar los contornos
-                for (let i = 0; i < this.filterContours.size(); ++i) {
-                    let tmp = new cv.Mat();
-                    let cnt = this.filterContours.get(i);
+                areas.sort((a,b)=>{return b[0]-a[0]})
+                let focus_index = -1;
+                for(let i=0; i<areas.length; i++) {
+                    let approx = new cv.Mat();
+                    let cnt = this.Contours.get(areas[i][1]);
                     let perimeter = cv.arcLength(cnt, true);
-
-                    cv.approxPolyDP(cnt, tmp, 150, false);
-                    //cv.convexHull(cnt, tmp, false, true);
-                    this.Poly.push_back(tmp);
-
-                    cnt.delete(); tmp.delete();
+                    
+                    cv.approxPolyDP(cnt, approx, perimeter*0.02, false);
+                    if(approx.size().width*approx.size().height == 4) {
+                        this.screenContour = approx;
+                        focus_index = areas[i][1]
+                        break;
+                    }
                 }
 
-                for (let i = 0; i < this.Poly.size(); ++i) {
-                    let color = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255),
-                                            Math.round(Math.random() * 255)); 
-                    cv.drawContours(this.gray, this.Poly, i, color, 3, 8, this.hierarchy, 0);
-                }
-
-               
-
+                let color = new cv.Scalar(0,255,0); 
+                this.Poly.push_back(this.screenContour)
+                //Check this
+                cv.drawContours(this.gray, this.Contours, focus_index, color, 3, 8, this.hierarchy);
 
                 cv.imshow(this.$refs.canvas, this.edged);
                 cv.imshow(this.$refs.canvas2, this.gray);
-
                 this.filterContours.delete();
                 this.Poly.delete();
 
