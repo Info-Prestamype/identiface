@@ -29,6 +29,8 @@
             </canvas>
              <canvas ref="canvas3">
             </canvas>
+            <canvas ref="canvas4">
+            </canvas>
             <div v-show="reading" class="reading">
                 Leyendo imagen...
             </div>
@@ -187,6 +189,7 @@
                 resized: undefined,
                 workFrame: undefined,
                 Contours: undefined,
+                blured: undefined,
                 filterContours: undefined,
                 Poly: undefined,
 
@@ -385,6 +388,7 @@
                     this.workFrame = new cv.Mat();
                     this.gray = new cv.Mat();
                     this.edged = new cv.Mat();
+                    this.blured = new cv.Mat();
                     this.hierarchy = new cv.Mat();
                     this.Contours = new cv.MatVector();
                     
@@ -394,47 +398,63 @@
                 this.Poly = new cv.MatVector();
 
                 let dsize = new cv.Size(this.width*0.5, this.height*0.5);
-                let ksize = new cv.Size( 5, 5);
+                let ksize = new cv.Size(3, 3);
 
                 cv.resize(this.frame, this.workFrame, dsize, 0, 0, cv.INTER_AREA);
 
                 
                 cv.cvtColor(this.workFrame, this.gray, cv.COLOR_BGR2GRAY);
-                cv.GaussianBlur(this.gray, this.gray, ksize, 0, 0, cv.BORDER_DEFAULT); 
-                cv.Canny(this.gray, this.edged, 30, 200, 3, false); 
-                
-                cv.findContours(this.edged, this.Contours, this.hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+                cv.GaussianBlur(this.gray, this.blured, ksize, 0, 0, cv.BORDER_DEFAULT);
+                cv.threshold(this.blured, this.blured, 130, 200, cv.THRESH_BINARY_INV);  
+                cv.Canny(this.blured, this.edged, 20, 200, 3, true); 
 
+                cv.findContours(this.edged, this.Contours, this.hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+                
                 //Filtrar Por Area
-                for (let i = 0; i < this.Contours.size(); ++i) { 
+                for (let i = 0; i < this.Contours.size(); ++i) {
                     
                     let cnt = this.Contours.get(i);
                     let area = cv.contourArea(cnt, false);
-                    //console.log(area);
-                    console.log(area);
-                    //if(area > 50){
-                        this.filterContours.push_back(cnt) 
-                    //}
+                
+                        let rect = cv.boundingRect(cnt);
+                        let point1 = new cv.Point(rect.x, rect.y);
+                        let point2 = new cv.Point(rect.x + rect.width, rect.y + rect.height);
+                        cv.rectangle(this.gray, point1, point2, new cv.Scalar(255, 0, 0), 2, cv.LINE_AA, 0);
+                        this.filterContours.push_back(cnt)
+               
                 }
 
+                for (let i = 0; i < this.filterContours.size(); ++i) {
+                    let color = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255),
+                                            Math.round(Math.random() * 255)); 
+                    //cv.drawContours(this.gray, this.filterContours, i, color, 3, 8, this.hierarchy, 0);
+                }
+
+                
                 //Aproximar los contornos
+                
                 for (let i = 0; i < this.filterContours.size(); ++i) {
                     let tmp = new cv.Mat();
                     let cnt = this.filterContours.get(i);
                     let perimeter = cv.arcLength(cnt, true);
 
-                    cv.approxPolyDP(cnt, tmp, 150, false);
+               
+                    
+
+                    //cv.approxPolyDP(cnt, tmp, 200, false);
                     //cv.convexHull(cnt, tmp, false, true);
-                    this.Poly.push_back(tmp);
+                   
+                     this.Poly.push_back(cnt);
 
                     cnt.delete(); tmp.delete();
                 }
 
-                for (let i = 0; i < this.Poly.size(); ++i) {
-                    let color = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255),
-                                            Math.round(Math.random() * 255)); 
-                    cv.drawContours(this.gray, this.Poly, i, color, 3, 8, this.hierarchy, 0);
-                }
+               
+                
+                
+                
+
+             
 
                
 
