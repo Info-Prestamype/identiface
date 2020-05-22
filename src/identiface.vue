@@ -20,11 +20,25 @@
                     :autoplay="autoplay"
                     playsinline
             />
-            <canvas ref="canvas" 
+
+            <div class="content-recognition">
+                <canvas ref="canvas" 
                 :width="width"
                 :height="height"
                 >
-            </canvas>
+                </canvas>
+                <canvas ref="drawCanvas"  class="drawCanvas"
+                    :width="width"
+                    :height="height"
+                    >
+                </canvas>
+                 <radial-progress-bar :diameter="120" class="progressCircle"
+                       :completed-steps="detectProgress"
+                       :strokeWidth="20"
+                       :innerStrokeWidth="20"
+                       :animateSpeed="100"
+                       :total-steps="100" />
+            </div>
             <canvas ref="canvas2">
             </canvas>
              <canvas ref="canvas3">
@@ -46,6 +60,23 @@
 </template>
 
 <style scoped>
+    .progressCircle{
+        margin-top: -122px;
+        display: block;
+        margin: -122px auto;
+    }
+    .content-recognition{
+        position: relative;
+        display: block;
+        margin:  0 auto;
+        width: 888px;
+        height: 500px;
+    }
+    .drawCanvas{
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
     .canvasroi{
         display: none;
     }
@@ -62,8 +93,13 @@
         font-size: 24px;
     }
 
+    video{
+        display: none;
+    }
+
     canvas{
         display: block;
+        margin: 0 auto;
     }
 
     
@@ -98,12 +134,14 @@
     import getUserMedia from './getusermedia'
     import toblob from 'canvas-to-blob'
     import * as cv from 'opencv.js'
-    import * as imutils from 'imutils'
+    import RadialProgressBar from 'vue-radial-progress'
     
    
-
     export default {
         name: "identiface",
+        components: {
+        RadialProgressBar
+        },
         props: {
             awsUrl: {
                 type: String,
@@ -147,6 +185,7 @@
         },
         data() {
             return {
+                detectProgress: 0,
                 source: null,
                 notSupported: false,
                 canvas: null,
@@ -184,15 +223,13 @@
                 faces: undefined,
                 faceClass: undefined,
                 //New Version Performance
-                gray: undefined,
-                edged: undefined,
                 resized: undefined,
                 workFrame: undefined,
                 Contours: undefined,
-                blured: undefined,
-                filterContours: undefined,
-                Poly: undefined,
-
+                sorteableContours: [],
+                bitwise:undefined,
+                centerX: 0,
+                centerY: 0,
             };
         },
         watch: {
@@ -206,6 +243,15 @@
                     this.changeFrontBack(newValue)
                 }
             },
+            centerX: function (newValue, oldValue) {
+                //console.log(Math.abs(newValue - oldValue))
+                if(Math.abs(newValue - oldValue) <= 10){
+                    this.detectProgress += 30;
+                }else{
+                    this.detectProgress = 0;
+                }
+            },
+
         },
         computed: {
             supportFacingMode () {
@@ -223,7 +269,7 @@
                     ...(this.deviceId ? {deviceId: { exact: this.deviceId }} : {}), 
                     facingMode,
                     width: { ideal: this.resolution.width },
-                    height: { ideal: this.resolution.height } 
+                    height: { ideal: this.resolution.height }
                 }
                 return {
                     video,
@@ -375,96 +421,123 @@
                     
                     //this.recognition();
                     this.edgeDetection();
-                    //cv.imshow(this.$refs.canvas2, this.frameSize);
                 
                     let delay = 1000/30 - (Date.now() - begin);
-                    setTimeout(this.process, delay);
+                    setTimeout(this.process, delay); 
                 }
+                
                 
             },
             edgeDetection(){
                 if(!this.inProcess){
+                    this.frameGray = new cv.Mat();
+                    this.msize = new cv.Size(5,150)
+
                     this.inProcess = true;
+                    this.faces = new cv.RectVector();
                     this.workFrame = new cv.Mat();
                     this.gray = new cv.Mat();
                     this.edged = new cv.Mat();
-                    this.blured = new cv.Mat();
                     this.hierarchy = new cv.Mat();
                     this.Contours = new cv.MatVector();
-                    
+
+                    //Color
+                    this.maskColor = new cv.Mat();
+                    this.hsvRoi = new cv.Mat();
+
+                    this.lowScalar = new cv.Scalar(80, 100, 20);
+                    this.highScalar = new cv.Scalar(100, 255, 255);
                 }
 
-                this.filterContours = new cv.MatVector();
-                this.Poly = new cv.MatVector();
+                this.sortableContours = [];
+
 
                 let dsize = new cv.Size(this.width*0.5, this.height*0.5);
-                let ksize = new cv.Size(3, 3);
+                
 
                 cv.resize(this.frame, this.workFrame, dsize, 0, 0, cv.INTER_AREA);
+                cv.threshold(this.workFrame, this.workFrame, 100, 230, cv.THRESH_BINARY);
+                cv.cvtColor(this.workFrame, this.hsvRoi, cv.COLOR_RGB2HSV);
+
+                this.low = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), this.lowScalar);
+                this.high = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), this.highScalar);
+                cv.inRange(this.hsvRoi, this.low, this.high, this.maskColor);
+
+                this.bitwise = new cv.Mat();
+                cv.bitwise_and(this.hsvRoi, this.hsvRoi, this.bitwise,this.maskColor)
 
                 
-                cv.cvtColor(this.workFrame, this.gray, cv.COLOR_BGR2GRAY);
-                cv.GaussianBlur(this.gray, this.blured, ksize, 0, 0, cv.BORDER_DEFAULT);
-                cv.threshold(this.blured, this.blured, 130, 200, cv.THRESH_BINARY_INV);  
-                cv.Canny(this.blured, this.edged, 20, 200, 3, true); 
 
-                cv.findContours(this.edged, this.Contours, this.hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-                
-                //Filtrar Por Area
-                for (let i = 0; i < this.Contours.size(); ++i) {
-                    
+                cv.findContours(this.maskColor, this.Contours, this.hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+
+                for (let i = 0; i < this.Contours.size(); i++) {
                     let cnt = this.Contours.get(i);
                     let area = cv.contourArea(cnt, false);
-                
-                        let rect = cv.boundingRect(cnt);
-                        let point1 = new cv.Point(rect.x, rect.y);
-                        let point2 = new cv.Point(rect.x + rect.width, rect.y + rect.height);
-                        cv.rectangle(this.gray, point1, point2, new cv.Scalar(255, 0, 0), 2, cv.LINE_AA, 0);
-                        this.filterContours.push_back(cnt)
-               
+                    let perim = cv.arcLength(cnt, false);
+
+                    this.sortableContours.push({ areaSize: area, perimiterSize: perim, contour: cnt });
                 }
 
-                for (let i = 0; i < this.filterContours.size(); ++i) {
-                    let color = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255),
-                                            Math.round(Math.random() * 255)); 
-                    //cv.drawContours(this.gray, this.filterContours, i, color, 3, 8, this.hierarchy, 0);
-                }
+                this.sortableContours = this.sortableContours.sort((item1, item2) => { return (item1.areaSize > item2.areaSize) ? -1 : (item1.areaSize < item2.areaSize) ? 1 : 0; }).slice(0, 1);
 
-                
-                //Aproximar los contornos
-                
-                for (let i = 0; i < this.filterContours.size(); ++i) {
-                    let tmp = new cv.Mat();
-                    let cnt = this.filterContours.get(i);
-                    let perimeter = cv.arcLength(cnt, true);
-
-               
+                for (let i = 0; i < this.sortableContours.length; ++i) {
                     
+                        
+                    let cnt = this.sortableContours[i].contour;
+                    let rect = cv.boundingRect(cnt);
+                    let moments = cv.moments(cnt, false);
 
-                    //cv.approxPolyDP(cnt, tmp, 200, false);
-                    //cv.convexHull(cnt, tmp, false, true);
-                   
-                     this.Poly.push_back(cnt);
+                     if(rect.width > this.workFrame.size().width*0.6 && rect.height > this.workFrame.size().height*0.6){
 
-                    cnt.delete(); tmp.delete();
+
+                        let cx = moments.m10/moments.m00;
+                        let cy = moments.m01/moments.m00;  
+
+                        this.centerX = parseInt(cx);
+                        this.centerY = parseInt(cy);
+
+                        /*
+                        let point1 = new cv.Point(rect.x*2, rect.y*2);
+                        let point2 = new cv.Point((rect.x*2) + (rect.width*2), (rect.y*2) + (rect.height*2));
+                        cv.rectangle(this.frame, point1, point2, new cv.Scalar(255, 0, 0), 2, cv.LINE_AA, 0);
+                        */
+
+                        if(this.faceClass !== undefined){
+
+                            cv.resize(this.frame, this.frameGray, dsize, 0, 0, cv.INTER_AREA);
+                            
+                            cv.cvtColor(this.frameGray, this.frameGray , cv.COLOR_RGBA2GRAY, 0);
+                            
+                            this.faceClass.detectMultiScale(this.frameGray, this.faces, 1.2, 3, 0, this.msize, this.msize);
+                             
+                            for (let i=0;i<this.faces.size();i++) {
+                                
+                                let face = this.faces.get(i);
+                                let point1 = new cv.Point(face.x, face.y); 
+                                let point2 = new cv.Point(face.x + face.width, face.y + face.height);
+                                cv.rectangle(this.frameGray, point1, point2, new cv.Scalar(255, 0, 0), 2, cv.LINE_AA, 0);
+                            }
+
+                            cv.imshow(this.$refs.canvas2, this.frameGray);
+
+                        }
+
+                     
+                     }
+                     cnt.delete();
+                  
                 }
 
+
+
+                cv.imshow(this.$refs.canvas, this.frame);
+                cv.imshow(this.$refs.canvas3, this.bitwise);
+                this.bitwise.delete();
+                this.high.delete();
+                this.low.delete();
                
                 
-                
-                
-
-             
-
-               
-
-
-                cv.imshow(this.$refs.canvas, this.edged);
-                cv.imshow(this.$refs.canvas2, this.gray);
-
-                this.filterContours.delete();
-                this.Poly.delete();
-
             },
             recognition(){
                 
