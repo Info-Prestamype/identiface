@@ -1,5 +1,15 @@
 <template>
     <div class="identiface">
+        <h1>Análisis de documento identidad - TI</h1>
+        <ol>
+            <li>
+                Acercar el DNI hasta que visualize 2 cuadros
+            </li>
+            <li>
+                Mantener el DNI en posicion hasta que termine el contador
+            </li>
+            <p>*para mejorar el reconocimiento usar en areas iluminadas </p>
+        </ol>
         <template v-if="notSupported">
             <label class="inputContent" id="identify__content" :class="{ 'error' : errorMessage !== ''}">
                 <input type="file" class="inputfile" id="identify__input" accept="image/jpeg"
@@ -32,10 +42,12 @@
                     :height="height"
                     >
                 </canvas>
-                 <radial-progress-bar :diameter="120" class="progressCircle"
+                 <radial-progress-bar :diameter="120" class="progressCircle" v-if="detectProgress > 0"
                        :completed-steps="detectProgress"
-                       :strokeWidth="20"
-                       :innerStrokeWidth="20"
+                       :strokeWidth="28"
+                       startColor="#8bc34a"
+                       stopColor="#8bc34a"
+                       :innerStrokeWidth="28"
                        :animateSpeed="100"
                        :total-steps="100" />
             </div>
@@ -60,6 +72,17 @@
 </template>
 
 <style scoped>
+    ol{
+        margin-top: 40px;
+        margin-bottom: 20px;
+    }
+    li{
+        text-align: left;
+    }
+    p{
+        font-size: 10px;
+        text-align: left;
+    }
     .progressCircle{
         margin-top: -122px;
         display: block;
@@ -228,8 +251,7 @@
                 Contours: undefined,
                 sorteableContours: [],
                 bitwise:undefined,
-                centerX: 0,
-                centerY: 0,
+                center:0,
             };
         },
         watch: {
@@ -243,15 +265,18 @@
                     this.changeFrontBack(newValue)
                 }
             },
-            centerX: function (newValue, oldValue) {
+            center: function (newValue, oldValue) {
                 //console.log(Math.abs(newValue - oldValue))
-                if(Math.abs(newValue - oldValue) <= 10){
-                    this.detectProgress += 30;
+                if(Math.abs(newValue - oldValue) <= 5){
+                    this.detectProgress += 15;
                 }else{
                     this.detectProgress = 0;
                 }
-            },
 
+                if(this.detectProgress >= 85){
+                    this.detected();
+                }
+            },
         },
         computed: {
             supportFacingMode () {
@@ -419,8 +444,7 @@
                 if(this.streaming){
                     this.cap.read(this.frame);
                     
-                    //this.recognition();
-                    this.edgeDetection();
+                    this.edgeDetection();  
                 
                     let delay = 1000/30 - (Date.now() - begin);
                     setTimeout(this.process, delay); 
@@ -431,8 +455,9 @@
             edgeDetection(){
                 if(!this.inProcess){
                     this.frameGray = new cv.Mat();
-                    this.msize = new cv.Size(5,150)
+                    this.msize = new cv.Size(5,120);
 
+                    this.rectangleColor = new cv.Scalar(41, 132, 42);
                     this.inProcess = true;
                     this.faces = new cv.RectVector();
                     this.workFrame = new cv.Mat();
@@ -488,20 +513,25 @@
                     let rect = cv.boundingRect(cnt);
                     let moments = cv.moments(cnt, false);
 
-                     if(rect.width > this.workFrame.size().width*0.6 && rect.height > this.workFrame.size().height*0.6){
+
+                    if(rect.width > this.workFrame.size().width*0.6 && rect.height > this.workFrame.size().height*0.6
+                        && rect.width < this.workFrame.size().width  && rect.height < this.workFrame.size().height
+                    
+                    ){
 
 
                         let cx = moments.m10/moments.m00;
-                        let cy = moments.m01/moments.m00;  
+                        let cy = moments.m01/moments.m00; 
 
-                        this.centerX = parseInt(cx);
-                        this.centerY = parseInt(cy);
+                        
+                         
+                         
 
-                        /*
-                        let point1 = new cv.Point(rect.x*2, rect.y*2);
+                        let point1 = new cv.Point(rect.x*2, rect.y*2-40);
                         let point2 = new cv.Point((rect.x*2) + (rect.width*2), (rect.y*2) + (rect.height*2));
-                        cv.rectangle(this.frame, point1, point2, new cv.Scalar(255, 0, 0), 2, cv.LINE_AA, 0);
-                        */
+                        cv.rectangle(this.frame, point1, point2, this.rectangleColor, 1, cv.LINE_AA, 0);
+
+                        
 
                         if(this.faceClass !== undefined){
 
@@ -509,21 +539,30 @@
                             
                             cv.cvtColor(this.frameGray, this.frameGray , cv.COLOR_RGBA2GRAY, 0);
                             
-                            this.faceClass.detectMultiScale(this.frameGray, this.faces, 1.2, 3, 0, this.msize, this.msize);
+                            this.faceClass.detectMultiScale(this.frameGray, this.faces, 1.4, 5, 0, this.msize, this.msize);
                              
-                            for (let i=0;i<this.faces.size();i++) {
+                            if(this.faces.size() >= 1){
+                                this.center = parseInt(cx) + parseInt(cy);
+
+                                this.trackWindow = new cv.Rect(rect.x*2, rect.y*2-40, rect.width*2,rect.height*2+40);
                                 
-                                let face = this.faces.get(i);
-                                let point1 = new cv.Point(face.x, face.y); 
-                                let point2 = new cv.Point(face.x + face.width, face.y + face.height);
-                                cv.rectangle(this.frameGray, point1, point2, new cv.Scalar(255, 0, 0), 2, cv.LINE_AA, 0);
+                                this.roi = this.frame.roi(this.trackWindow);
+                                
+                                for (let i=0;i<this.faces.size();i++) {
+
+                                    let face = this.faces.get(i);
+                                    let point1 = new cv.Point(face.x*2, face.y*2); 
+                                    let point2 = new cv.Point(face.x*2 + face.width*2, face.y*2 + face.height*2);
+                                    cv.rectangle(this.frame, point1, point2, this.rectangleColor, 1 ,cv.LINE_AA, 0);
+                                }
+                                
+                            }else{
+                                this.detectProgress = 0
                             }
-
-                            cv.imshow(this.$refs.canvas2, this.frameGray);
-
                         }
-
                      
+                     }else{
+                         this.detectProgress = 0
                      }
                      cnt.delete();
                   
@@ -538,125 +577,6 @@
                 this.low.delete();
                
                 
-            },
-            recognition(){
-                
-                if(!this.inProcess){
-                    //instance one time
-
-                    this.frameGray = new cv.Mat()
-                    this.faces = new cv.RectVector();
-                    this.hsvRoi = new cv.Mat();
-                    this.maskColor = new cv.Mat();
-                    this.contours = new cv.MatVector();
-                    this.contoursMilo = new cv.MatVector();
-                    this.hierarchy = new cv.Mat();
-                    this.rectangleColor = new cv.Scalar(255, 0, 0);
-
-                    //min and max size of face detected for blue dni
-                    this.msize = new cv.Size(120,120)
-
-                    //dni blue color
-                    this.lowScalar = new cv.Scalar(80, 100, 20);
-                    this.highScalar = new cv.Scalar(100, 255, 255);
-
-                    //milo green color
-                    this.lowScalarMilo = new cv.Scalar(40, 100, 20);
-                    this.highScalarMilo = new cv.Scalar(70, 255, 255);
-                        
-                    
-                    let w = this.width,
-                    h = this.height;
-                
-                    this.trackWindow = new cv.Rect(w*0.1, h*0.1, w*0.9-w*0.1,h*0.9-h*0.1); 
-
-                    
-                    this.inProcess = true;
-                
-                }
-
-                this.colorRec = new cv.Scalar(232, 81, 81, 255);
-                
-                //Def Region of interest 
-                this.roi = this.frame.roi(this.trackWindow);
-                
-                //convert the roi to hsv
-                cv.cvtColor(this.roi, this.hsvRoi, cv.COLOR_RGB2HSV);
-
-  
-              
-                let dniArea = this.detectColor('normal');
-                let miloArea = this.detectColor('electronico');
-
-                //console.log(dniArea.size(), miloArea.size())
-                //Show detected Color 
-
-                if(dniArea.size() > miloArea.size()){
-                     this.detectPhoto(this.contours,'normal');
-                }else{ 
-                    this.detectPhoto(this.contoursMilo,'electronico');
-                }
-
-                
-                let bitwise = new cv.Mat(); 
-                cv.bitwise_and(this.hsvRoi, this.hsvRoi, bitwise,this.maskColor)
-                cv.imshow(this.$refs.canvas2, bitwise);
-                
-                
-                //Reference Rectangle
-                cv.rectangle(this.frame, new cv.Point(this.width*0.1, this.height*0.1), new cv.Point(this.width*0.9,this.height*0.9), this.colorRec, 2);
-                
-                
-            },
-            detectPhoto(contours, type){
-       
-
-                for (let i = 0; i < contours.size(); ++i) {
-                    
-                    let cnt = contours.get(i);
-                    let area = cv.contourArea(cnt, false); 
-                    
-
-                    if(area > 15000) {
-                        let rect = cv.boundingRect(cnt);
-                        let point1 = new cv.Point(rect.x, rect.y);
-                        let point2 = new cv.Point(rect.x + rect.width, rect.y + rect.height);
-                        cv.rectangle(this.roi, point1, point2, this.rectangleColor, 2, cv.LINE_AA, 0);
-
-                        
-                        if(rect.width < this.trackWindow.width-1 &&
-                            rect.width > this.trackWindow.width-80
-            
-                        ){
-                            if(this.faceClass !== undefined){
-                                
-                                if(type === 'normal'){
-                                    let rect = new cv.Rect(0, 0, this.trackWindow.width*0.35,this.trackWindow.height*0.6);
-                                    let roiFaceNormal = this.roi.roi(rect);
-                                    
-
-                                    cv.cvtColor(roiFaceNormal, this.frameGray , cv.COLOR_RGBA2GRAY, 0);
-    
-                                    this.faceClass.detectMultiScale(this.frameGray, this.faces, 1.7, 3, 0, this.msize, this.msize);
-
-                                    for (let i=0;i<this.faces.size();i++) {
-                                        let face = this.faces.get(i); 
-                                        let point1 = new cv.Point(face.x, face.y); 
-                                        let point2 = new cv.Point(face.x + face.width, face.y + face.height);
-                                        
-                                        if(face.y <= this.trackWindow.height*0.6 && face.x + face.width<=this.trackWindow.width*0.35){
-                                            this.colorRec = new cv.Scalar(45, 206, 17, 255);
-
-                                            this.typeDocument = 'normal'
-                                            this.detected();
-                                        }
-                                    }
-                                }
-                                
-                            }   
-                        }                    
-                    }   
-                }
             },
             clearAll(){
                 this.streaming = false;
