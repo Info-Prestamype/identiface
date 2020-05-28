@@ -3,12 +3,12 @@
         <h1>Análisis de documento identidad - TI</h1>
         <ol>
             <li>
-                Acercar el DNI hasta que visualize 2 cuadros
+                Acercar el DNI hasta el area marcada
             </li>
             <li>
-                Mantener el DNI en posicion hasta que termine el contador
+                Mantener la posición y esperar que cargue
             </li>
-            <p>*para mejorar el reconocimiento usar en areas iluminadas </p>
+            <p>*para mejorar la precisión realizar el test en areas iluminadas</p>
         </ol>
         <template v-if="notSupported">
             <label class="inputContent" id="identify__content" :class="{ 'error' : errorMessage !== ''}">
@@ -37,17 +37,20 @@
                 :height="height"
                 >
                 </canvas>
-                <canvas ref="drawCanvas"  class="drawCanvas"
-                    :width="width"
-                    :height="height"
-                    >
-                </canvas>
-                 <radial-progress-bar :diameter="120" class="progressCircle" v-if="detectProgress > 0"
+                <div class="referenceBox" :class="{ active: detectProgress > 0 }">
+                    <div class="left-top"></div>
+                    <div class="right-top"></div>
+                    <div class="left-bottom"></div>
+                    <div class="right-bottom"></div>
+                    <div class="circle-ok" v-show="detectProgress >= 93"></div>
+                </div>
+                 <radial-progress-bar :diameter="90" class="progressCircle"
                        :completed-steps="detectProgress"
-                       :strokeWidth="28"
-                       startColor="#8bc34a"
-                       stopColor="#8bc34a"
-                       :innerStrokeWidth="28"
+                       :strokeWidth="10"
+                       startColor="#0eff00"
+                       stopColor="#0eff00"
+                       innerStrokeColor="#ffffff"
+                       :innerStrokeWidth="10"
                        :animateSpeed="100"
                        :total-steps="100" />
             </div>
@@ -71,7 +74,7 @@
 
 </template>
 
-<style scoped>
+<style scoped scss>
     ol{
         margin-top: 40px;
         margin-bottom: 20px;
@@ -95,10 +98,61 @@
         width: 888px;
         height: 500px;
     }
-    .drawCanvas{
+    .referenceBox{
         position: absolute;
         top: 0;
         left: 0;
+        width: 100%;
+        height: 100%;
+        justify-content: center;
+        align-items: flex-end;
+        display: flex;
+    }
+    .referenceBox.active div{
+        border-color: #0eff00 !important;
+    }
+    .left-top{
+        border-top: 7px solid #ffffff;
+        border-left: 7px solid #ffffff;
+        width: 5%;
+        height: 9%;
+        position: absolute;
+        left: 11%;
+        top: 7%;
+    }
+    .right-top{
+        border-top: 7px solid #ffffff;
+        border-right: 7px solid #ffffff;
+        width: 5%;
+        height: 9%;
+        position: absolute;
+        right: 11%;
+        top: 7%;
+    }
+    .left-bottom{
+        border-bottom: 7px solid #ffffff;
+        border-left: 7px solid #ffffff;
+        width: 5%;
+        height: 9%;
+        position: absolute;
+        left: 11%;
+        bottom: 7%;
+    }
+    .right-bottom{ 
+        border-bottom: 7px solid #ffffff;
+        border-right: 7px solid #ffffff;
+        width: 5%;
+        height: 9%;
+        position: absolute;
+        right: 11%;
+        bottom: 7%;
+    }
+    .circle-ok{
+        background-color: #0eff00;
+        margin-bottom: 49px;
+        width: 54px;
+        height: 55px;
+        border-radius: 50px;
     }
     .canvasroi{
         display: none;
@@ -148,6 +202,34 @@
         -moz-user-select: none;
         -ms-user-select: none;
         user-select: none;
+    }
+    @keyframes fadein {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+    }
+
+    /* Firefox < 16 */
+    @-moz-keyframes fadein {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+    }
+
+    /* Safari, Chrome and Opera > 12.1 */
+    @-webkit-keyframes fadein {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+    }
+
+    /* Internet Explorer */
+    @-ms-keyframes fadein {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+    }
+
+    /* Opera < 12.1 */
+    @-o-keyframes fadein {
+        from { opacity: 0; }
+        to   { opacity: 1; }
     }
 </style>
 
@@ -252,6 +334,10 @@
                 sorteableContours: [],
                 bitwise:undefined,
                 center:0,
+                px:undefined,
+                py:undefined,
+                w:undefined,
+                h:undefined
             };
         },
         watch: {
@@ -266,14 +352,13 @@
                 }
             },
             center: function (newValue, oldValue) {
-                //console.log(Math.abs(newValue - oldValue))
                 if(Math.abs(newValue - oldValue) <= 5){
-                    this.detectProgress += 15;
+                    this.detectProgress += 10;
                 }else{
                     this.detectProgress = 0;
                 }
 
-                if(this.detectProgress >= 85){
+                if(this.detectProgress >= 100){
                     this.detected();
                 }
             },
@@ -446,7 +531,7 @@
                     
                     this.edgeDetection();  
                 
-                    let delay = 1000/30 - (Date.now() - begin);
+                    let delay = 1000/100 - (Date.now() - begin);
                     setTimeout(this.process, delay); 
                 }
                 
@@ -455,7 +540,7 @@
             edgeDetection(){
                 if(!this.inProcess){
                     this.frameGray = new cv.Mat();
-                    this.msize = new cv.Size(5,120);
+                    this.msize = new cv.Size(20,100);
 
                     this.rectangleColor = new cv.Scalar(41, 132, 42);
                     this.inProcess = true;
@@ -482,7 +567,7 @@
 
                 cv.resize(this.frame, this.workFrame, dsize, 0, 0, cv.INTER_AREA);
                 cv.threshold(this.workFrame, this.workFrame, 100, 230, cv.THRESH_BINARY);
-                cv.cvtColor(this.workFrame, this.hsvRoi, cv.COLOR_RGB2HSV);
+                cv.cvtColor(this.workFrame, this.hsvRoi, cv.COLOR_RGB2HSV); 
 
                 this.low = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), this.lowScalar);
                 this.high = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), this.highScalar);
@@ -504,33 +589,50 @@
                     this.sortableContours.push({ areaSize: area, perimiterSize: perim, contour: cnt });
                 }
 
-                this.sortableContours = this.sortableContours.sort((item1, item2) => { return (item1.areaSize > item2.areaSize) ? -1 : (item1.areaSize < item2.areaSize) ? 1 : 0; }).slice(0, 1);
+                this.sortableContours = this.sortableContours.sort((item1, item2) => { return (item1.areaSize > item2.areaSize) ? -1 : (item1.areaSize < item2.areaSize) ? 1 : 0; }).slice(0, 5);
 
                 for (let i = 0; i < this.sortableContours.length; ++i) {
                     
-                        
                     let cnt = this.sortableContours[i].contour;
                     let rect = cv.boundingRect(cnt);
                     let moments = cv.moments(cnt, false);
 
 
-                    if(rect.width > this.workFrame.size().width*0.6 && rect.height > this.workFrame.size().height*0.6
+                    //console.log(this.sortableContours[i].areaSize);
+
+                    if(rect.width > this.workFrame.size().width*0.65 && rect.height > this.workFrame.size().height*0.65
                         && rect.width < this.workFrame.size().width  && rect.height < this.workFrame.size().height
                     
                     ){
 
-
                         let cx = moments.m10/moments.m00;
                         let cy = moments.m01/moments.m00; 
 
+                    
+                        let point1, point2, recW, recH;
+                        this.px = rect.x*2; 
+                        this.py= rect.y*2;
+                        this.w = rect.width*2;
+                        this.h = rect.height*2;
                         
-                         
-                         
+                        recW = rect.x*2 + rect.width*2;
+                        recH = rect.y*2 + rect.height*2;
 
-                        let point1 = new cv.Point(rect.x*2, rect.y*2-40);
-                        let point2 = new cv.Point((rect.x*2) + (rect.width*2), (rect.y*2) + (rect.height*2));
+                        if( rect.height < 220 && rect.height > 160 ){
+                            this.py -= 25;
+                            recH += 10;
+                        }   
+
+                        if( rect.width > 280 && rect.width < 340){
+                            this.px -= 20;
+                            recW += 20;
+                        }
+
+                        point1 = new cv.Point(this.px, this.py);
+                        point2 = new cv.Point(recW, recH);
+
+                        
                         cv.rectangle(this.frame, point1, point2, this.rectangleColor, 1, cv.LINE_AA, 0);
-
                         
 
                         if(this.faceClass !== undefined){
@@ -539,14 +641,11 @@
                             
                             cv.cvtColor(this.frameGray, this.frameGray , cv.COLOR_RGBA2GRAY, 0);
                             
-                            this.faceClass.detectMultiScale(this.frameGray, this.faces, 1.4, 5, 0, this.msize, this.msize);
+                            this.faceClass.detectMultiScale(this.frameGray, this.faces, 1.5, 5, 0, this.msize, this.msize);
                              
                             if(this.faces.size() >= 1){
                                 this.center = parseInt(cx) + parseInt(cy);
-
-                                this.trackWindow = new cv.Rect(rect.x*2, rect.y*2-40, rect.width*2,rect.height*2+40);
                                 
-                                this.roi = this.frame.roi(this.trackWindow);
                                 
                                 for (let i=0;i<this.faces.size();i++) {
 
@@ -561,22 +660,20 @@
                             }
                         }
                      
-                     }else{
-                         this.detectProgress = 0
                      }
+                     /*else{
+                         this.detectProgress = 0
+                     }*/
                      cnt.delete();
                   
                 }
 
-
-
                 cv.imshow(this.$refs.canvas, this.frame);
-                cv.imshow(this.$refs.canvas3, this.bitwise);
-                this.bitwise.delete();
+                //cv.imshow(this.$refs.canvas3, this.bitwise);
+                this.bitwise.delete(); 
                 this.high.delete();
                 this.low.delete();
-               
-                
+                         
             },
             clearAll(){
                 this.streaming = false;
@@ -593,7 +690,10 @@
             },
         
             async detected(){
+                this.trackWindow = new cv.Rect(this.px,this.py,this.w,this.h);          
+                this.roi = this.frame.roi(this.trackWindow);
                 cv.imshow(this.$refs.canvas2, this.roi);
+                
                 this.streaming = false;
                 this.reading = true;
                 const canvasImage = this.$refs.canvas2.toDataURL().split(',')[1]
@@ -601,6 +701,7 @@
                     image: canvasImage,
                     type: this.typeDocument
                 }
+                
                 
                 try{
                     let res = await axios.post('https://wcns07epuc.execute-api.us-east-1.amazonaws.com/Prod/textdetect', body);
@@ -769,6 +870,9 @@
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
                 return canvas;
+            },
+            referenceCanvas(){
+                
             }
         }
     };
