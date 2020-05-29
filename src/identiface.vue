@@ -621,11 +621,13 @@
                         if( rect.height < 220 && rect.height > 160 ){
                             this.py -= 25;
                             recH += 10;
+                            this.h += 10;
                         }   
 
                         if( rect.width > 280 && rect.width < 340){
                             this.px -= 20;
                             recW += 20;
+                            this.w +=20;
                         }
 
                         point1 = new cv.Point(this.px, this.py);
@@ -699,7 +701,7 @@
                 const canvasImage = this.$refs.canvas2.toDataURL().split(',')[1]
                 const body = {
                     image: canvasImage,
-                    type: this.typeDocument
+                    type: 'normal',
                 }
                 
                 
