@@ -48,17 +48,8 @@
                         <button @click="Start">Iniciar</button>
                         <button @click="Stop">Parar</button>
                         <button @click="Capture">Foto</button>
-                        <hr/>
-                        <label><input type="checkbox" v-model="frontCamera">front Camera</label>
+                       <!-- <label><input type="checkbox" v-model="frontCamera">front Camera</label>-->
                     </template>
-
-
-
-                    <div >
-                        {{
-                        textOfDni
-                        }}
-                    </div>
 
                 </template>
 
