@@ -1,15 +1,6 @@
 <template>
     <div class="identiface">
-        <h1>Análisis de documento identidad - TI</h1>
-        <ol>
-            <li>
-                Acercar el DNI hasta el area marcada
-            </li>
-            <li>
-                Mantener la posición y esperar que cargue
-            </li>
-            <p>*para mejorar la precisión realizar el test en areas iluminadas</p>
-        </ol>
+
         <template v-if="notSupported">
             <label class="inputContent" id="identify__content" :class="{ 'error' : errorMessage !== ''}">
                 <input type="file" class="inputfile" id="identify__input" accept="image/jpeg"
@@ -32,9 +23,9 @@
             />
 
             <div class="content-recognition">
-                <canvas ref="canvas" 
-                :width="width"
-                :height="height"
+                <canvas ref="canvas"
+                        :width="width"
+                        :height="height"
                 >
                 </canvas>
                 <div class="referenceBox" :class="{ active: detectProgress > 0 }">
@@ -44,29 +35,103 @@
                     <div class="right-bottom"></div>
                     <div class="circle-ok" v-show="detectProgress >= 93"></div>
                 </div>
-                 <radial-progress-bar :diameter="90" class="progressCircle"
-                       :completed-steps="detectProgress"
-                       :strokeWidth="10"
-                       startColor="#0eff00"
-                       stopColor="#0eff00"
-                       innerStrokeColor="#ffffff"
-                       :innerStrokeWidth="10"
-                       :animateSpeed="100"
-                       :total-steps="100" />
+                <radial-progress-bar :diameter="90" class="progressCircle"
+                                     :completed-steps="detectProgress"
+                                     :strokeWidth="10"
+                                     startColor="#0eff00"
+                                     stopColor="#0eff00"
+                                     innerStrokeColor="#ffffff"
+                                     :innerStrokeWidth="10"
+                                     :animateSpeed="100"
+                                     :total-steps="100"/>
+            </div>
+            <div class="result" v-if="resultData">
+                <p class="dni">
+                    {{resultData.DNI}}
+                </p>
+                <p class="name">
+                    {{resultData.last_name}} {{resultData.mother_last_name}} {{resultData.names}}
+                </p>
+                <table>
+                    <tr>
+
+                        <td >
+                            <span>Sexo</span>
+                            {{resultData.gender}}</td>
+                        <td>
+                            <span>Estado Civil</span>
+                            {{resultData.marital_status}}
+                        </td>
+                        <td>
+                            <span>Fecha de Nacimiento</span>
+                            <template v-if="resultData.birth_date.length === 3">
+                                {{resultData.birth_date[0]}} - {{resultData.birth_date[1]}} - {{resultData.birth_date[2]}}
+                            </template>
+                            <template v-else>
+                                {{resultData.birth_date}}
+                            </template>
+
+                        </td>
+                        <td>
+                            <span>Ubigeo</span>
+                            <template v-if="resultData.ubigeo !== ''">
+                                {{resultData.ubigeo}}
+                            </template>
+                            <template v-else>
+                                No se identificó ubigeo
+                            </template>
+
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span>Inscripción</span>
+                            <template v-if="resultData.registration_date.length === 3">
+                                {{resultData.registration_date[0]}} - {{resultData.registration_date[1]}} - {{resultData.registration_date[2]}}
+                            </template>
+                            <template v-else>
+                                {{resultData.registration_date}}
+                            </template>
+                        </td>
+                        <td>
+                            <span>Emisión</span>
+                            <template v-if="resultData.issue_date.length === 3">
+                                {{resultData.issue_date[0]}} - {{resultData.issue_date[1]}} - {{resultData.issue_date[2]}}
+                            </template>
+                            <template v-else>
+                                {{resultData.issue_date}}
+                            </template>
+
+                        </td>
+                        <td>
+                            <span>Caducidad</span>
+                            <template v-if="resultData.expiry_date.length === 3">
+                                {{resultData.expiry_date[0]}} - {{resultData.expiry_date[1]}} - {{resultData.expiry_date[2]}}
+                            </template>
+                            <template v-else>
+                                {{ resultData.expiry_date }}
+                            </template>
+
+                        </td>
+
+                    </tr>
+                </table>
             </div>
             <canvas ref="canvas2">
             </canvas>
+            <!--
              <canvas ref="canvas3">
             </canvas>
-            <canvas ref="canvas4">
+               <canvas ref="canvas4">
             </canvas>
+             -->
+
+
             <div v-show="reading" class="reading">
                 Leyendo imagen...
             </div>
         </template>
-        <div class="progress">
-
-        </div>
+        <div class="progress"></div>
         <p class="errorMessage" v-if="errorMessage">
             {{this.errorMessage}}
         </p>
@@ -75,30 +140,86 @@
 </template>
 
 <style scoped scss>
-    ol{
-        margin-top: 40px;
-        margin-bottom: 20px;
-    }
-    li{
+
+    .result{
         text-align: left;
+        margin-bottom: 40px;
     }
-    p{
+    .dni{
+        font-weight: 500;
         font-size: 10px;
-        text-align: left;
+        line-height: 16px;
+        /* identical to box height, or 160% */
+        margin-bottom: 10px;
+        margin-top: 40px;
+        letter-spacing: 1.5px;
+        display: block;
+        text-transform: uppercase;
+
+        color: #131347;
+
+        mix-blend-mode: normal;
+
     }
-    .progressCircle{
+
+    table tr td{
+        font-style: normal;
+        font-weight: normal;
+        font-size: 14px;
+        line-height: 20px;
+        /* identical to box height, or 143% */
+
+        letter-spacing: 0.25px;
+
+        color: rgba(19, 19, 71, 0.6);
+
+        mix-blend-mode: normal;
+        padding: 10px 36px 0 0;
+    }
+
+    td.red{
+        color: red;
+    }
+
+    td span{
+        color: #000;
+        display: block;
+        
+    }
+
+    .name{
+        display: block;
+        margin-top: 0;
+        font-style: normal;
+        font-weight: normal;
+        font-size: 16px;
+        line-height: 24px;
+        /* identical to box height, or 150% */
+
+        letter-spacing: 0.15px;
+
+        color: #131347;
+
+        mix-blend-mode: normal;
+        text-transform: uppercase;
+    }
+
+
+    .progressCircle {
         margin-top: -122px;
         display: block;
         margin: -122px auto;
     }
-    .content-recognition{
+
+    .content-recognition {
         position: relative;
         display: block;
-        margin:  0 auto;
+        margin: 0 auto;
         width: 888px;
         height: 500px;
     }
-    .referenceBox{
+
+    .referenceBox {
         position: absolute;
         top: 0;
         left: 0;
@@ -108,10 +229,12 @@
         align-items: flex-end;
         display: flex;
     }
-    .referenceBox.active div{
+
+    .referenceBox.active div {
         border-color: #0eff00 !important;
     }
-    .left-top{
+
+    .left-top {
         border-top: 7px solid #ffffff;
         border-left: 7px solid #ffffff;
         width: 5%;
@@ -120,7 +243,8 @@
         left: 11%;
         top: 7%;
     }
-    .right-top{
+
+    .right-top {
         border-top: 7px solid #ffffff;
         border-right: 7px solid #ffffff;
         width: 5%;
@@ -129,7 +253,8 @@
         right: 11%;
         top: 7%;
     }
-    .left-bottom{
+
+    .left-bottom {
         border-bottom: 7px solid #ffffff;
         border-left: 7px solid #ffffff;
         width: 5%;
@@ -138,7 +263,8 @@
         left: 11%;
         bottom: 7%;
     }
-    .right-bottom{ 
+
+    .right-bottom {
         border-bottom: 7px solid #ffffff;
         border-right: 7px solid #ffffff;
         width: 5%;
@@ -147,20 +273,24 @@
         right: 11%;
         bottom: 7%;
     }
-    .circle-ok{
+
+    .circle-ok {
         background-color: #0eff00;
         margin-bottom: 49px;
         width: 54px;
         height: 55px;
         border-radius: 50px;
     }
-    .canvasroi{
+
+    .canvasroi {
         display: none;
     }
-    .reading{
+
+    .reading {
         position: fixed;
         width: 100%;
         height: 100%;
+        left: 0;
         background: #000000cc;
         top: 0;
         display: flex;
@@ -170,16 +300,16 @@
         font-size: 24px;
     }
 
-    video{
+    video {
         display: none;
     }
 
-    canvas{
+    canvas {
         display: block;
         margin: 0 auto;
     }
 
-    
+
     .inputContent {
         position: relative;
         display: inline-block;
@@ -192,6 +322,7 @@
         filter: alpha(opacity=0);
         opacity: 0;
     }
+
     .inputcustom {
         position: absolute;
         top: 0;
@@ -203,33 +334,54 @@
         -ms-user-select: none;
         user-select: none;
     }
+
     @keyframes fadein {
-    from { opacity: 0; }
-    to   { opacity: 1; }
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
     }
 
     /* Firefox < 16 */
     @-moz-keyframes fadein {
-        from { opacity: 0; }
-        to   { opacity: 1; }
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
     }
 
     /* Safari, Chrome and Opera > 12.1 */
     @-webkit-keyframes fadein {
-        from { opacity: 0; }
-        to   { opacity: 1; }
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
     }
 
     /* Internet Explorer */
     @-ms-keyframes fadein {
-        from { opacity: 0; }
-        to   { opacity: 1; }
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
     }
 
     /* Opera < 12.1 */
     @-o-keyframes fadein {
-        from { opacity: 0; }
-        to   { opacity: 1; }
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
     }
 </style>
 
@@ -240,12 +392,12 @@
     import toblob from 'canvas-to-blob'
     import * as cv from 'opencv.js'
     import RadialProgressBar from 'vue-radial-progress'
-    
-   
+
+
     export default {
         name: "identiface",
         components: {
-        RadialProgressBar
+            RadialProgressBar
         },
         props: {
             awsUrl: {
@@ -292,36 +444,37 @@
             return {
                 detectProgress: 0,
                 source: null,
+                resultData: '',
                 notSupported: false,
                 canvas: null,
                 errorMessage: '',
                 camerasListEmitted: false,
                 cameras: [],
-                camsList: { back: null, front: null },
+                camsList: {back: null, front: null},
                 streaming: false,
                 reading: false,
                 //recognition Setup
-                maskColor: undefined, 
+                maskColor: undefined,
                 maskColorElec: undefined,
-                lowScalar: undefined, 
-                highScalar: undefined, 
-                lowScalarMilo: undefined, 
-                highScalarMilo: undefined, 
-                low: undefined, 
+                lowScalar: undefined,
+                highScalar: undefined,
+                lowScalarMilo: undefined,
+                highScalarMilo: undefined,
+                low: undefined,
                 high: undefined,
                 contours: undefined,
-                contoursMilo: undefined, 
-                hierarchy: undefined, 
+                contoursMilo: undefined,
+                hierarchy: undefined,
                 rectangleColor: undefined,
                 typeDocument: undefined,
                 //detection
-                frame: undefined, 
+                frame: undefined,
                 cap: undefined,
                 colorRec: undefined,
                 inProcess: false,
                 roi: undefined,
-                roiDniElec: undefined, 
-                hsvRoi: undefined, 
+                roiDniElec: undefined,
+                hsvRoi: undefined,
                 trackWindow: undefined,
                 //face
                 frameGray: undefined,
@@ -332,12 +485,12 @@
                 workFrame: undefined,
                 Contours: undefined,
                 sorteableContours: [],
-                bitwise:undefined,
-                center:0,
-                px:undefined,
-                py:undefined,
-                w:undefined,
-                h:undefined
+                bitwise: undefined,
+                center: 0,
+                px: undefined,
+                py: undefined,
+                w: undefined,
+                h: undefined
             };
         },
         watch: {
@@ -352,19 +505,19 @@
                 }
             },
             center: function (newValue, oldValue) {
-                if(Math.abs(newValue - oldValue) <= 5){
+                if (Math.abs(newValue - oldValue) <= 5) {
                     this.detectProgress += 10;
-                }else{
+                } else {
                     this.detectProgress = 0;
                 }
 
-                if(this.detectProgress >= 100){
+                if (this.detectProgress >= 100) {
                     this.detected();
                 }
             },
         },
         computed: {
-            supportFacingMode () {
+            supportFacingMode() {
                 let result = ''
                 if (navigator.mediaDevices.getSupportedConstraints()["facingMode"]) {
                     result = "Supported!"
@@ -373,13 +526,13 @@
                 }
                 return result
             },
-            Constrains () {
-                const facingMode =  this.isFrontCam ? 'user' : 'environment'
+            Constrains() {
+                const facingMode = this.isFrontCam ? 'user' : 'environment'
                 const video = {
-                    ...(this.deviceId ? {deviceId: { exact: this.deviceId }} : {}), 
+                    ...(this.deviceId ? {deviceId: {exact: this.deviceId}} : {}),
                     facingMode,
-                    width: { ideal: this.resolution.width },
-                    height: { ideal: this.resolution.height }
+                    width: {ideal: this.resolution.width},
+                    height: {ideal: this.resolution.height}
                 }
                 return {
                     video,
@@ -403,7 +556,7 @@
 
                     const reader = new FileReader();
                     reader.readAsDataURL(event.target.files[0]);
-                    reader.onload = ()=> {
+                    reader.onload = () => {
                         this.$emit("preview", reader.result);
                     };
 
@@ -483,11 +636,11 @@
 
                     //prevent Opencv.js error.
                     this.$refs.video.width = this.width;
-                    this.$refs.video.height = this.height; 
+                    this.$refs.video.height = this.height;
                     this.streaming = true;
                     setTimeout(this.setupCV, 0);
                 };
-                
+
                 this.$emit("started", stream);
             },
 
@@ -498,49 +651,49 @@
                 if (this.frame === undefined) {
                     this.cap = await new cv.VideoCapture(this.$refs.video);
                     this.frame = await new cv.Mat(this.height, this.width, cv.CV_8UC4);
-                     
+
                     let cascadeFile = 'haarcascade_frontalface_default.xml'
                     this.createFileFromURL(cascadeFile, cascadeFile, (face) => {
                         this.faceClass = face
                     })
-                    
+
                     console.log("cv setup complete.");
                 }
                 setTimeout(this.process, 0);
             },
             createFileFromURL(file, url, cb) {
                 axios.get('/models/haarcascades/' + url)
-                .then((resp) => {
-                    let rtn = cv.FS_createDataFile('/', file, resp.data, true, false, false)
-                    if (!rtn) return cb(null)
-                    let classifier = new cv.CascadeClassifier()
-                    rtn = classifier.load(file)
-                    if (!rtn) return cb(null) 
-                    cb(classifier)
-                    console.log('loaded', rtn, classifier.empty(), this.faceClass)
+                    .then((resp) => {
+                        let rtn = cv.FS_createDataFile('/', file, resp.data, true, false, false)
+                        if (!rtn) return cb(null)
+                        let classifier = new cv.CascadeClassifier()
+                        rtn = classifier.load(file)
+                        if (!rtn) return cb(null)
+                        cb(classifier)
+                        console.log('loaded', rtn, classifier.empty(), this.faceClass)
 
-                })
-                .catch((err) => {
-                    console.log('ERR',err);
-                })
+                    })
+                    .catch((err) => {
+                        console.log('ERR', err);
+                    })
             },
-            process(){
+            process() {
                 let begin = Date.now();
-                if(this.streaming){
+                if (this.streaming) {
                     this.cap.read(this.frame);
-                    
-                    this.edgeDetection();  
-                
-                    let delay = 1000/100 - (Date.now() - begin);
-                    setTimeout(this.process, delay); 
+
+                    this.edgeDetection();
+
+                    let delay = 1000 / 100 - (Date.now() - begin);
+                    setTimeout(this.process, delay);
                 }
-                
-                
+
+
             },
-            edgeDetection(){
-                if(!this.inProcess){
+            edgeDetection() {
+                if (!this.inProcess) {
                     this.frameGray = new cv.Mat();
-                    this.msize = new cv.Size(20,100);
+                    this.msize = new cv.Size(20, 100);
 
                     this.rectangleColor = new cv.Scalar(41, 132, 42);
                     this.inProcess = true;
@@ -562,21 +715,20 @@
                 this.sortableContours = [];
 
 
-                let dsize = new cv.Size(this.width*0.5, this.height*0.5);
-                
+                let dsize = new cv.Size(this.width * 0.5, this.height * 0.5);
+
 
                 cv.resize(this.frame, this.workFrame, dsize, 0, 0, cv.INTER_AREA);
                 cv.threshold(this.workFrame, this.workFrame, 100, 230, cv.THRESH_BINARY);
-                cv.cvtColor(this.workFrame, this.hsvRoi, cv.COLOR_RGB2HSV); 
+                cv.cvtColor(this.workFrame, this.hsvRoi, cv.COLOR_RGB2HSV);
 
                 this.low = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), this.lowScalar);
                 this.high = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), this.highScalar);
                 cv.inRange(this.hsvRoi, this.low, this.high, this.maskColor);
 
                 this.bitwise = new cv.Mat();
-                cv.bitwise_and(this.hsvRoi, this.hsvRoi, this.bitwise,this.maskColor)
+                cv.bitwise_and(this.hsvRoi, this.hsvRoi, this.bitwise, this.maskColor)
 
-                
 
                 cv.findContours(this.maskColor, this.Contours, this.hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
@@ -586,13 +738,15 @@
                     let area = cv.contourArea(cnt, false);
                     let perim = cv.arcLength(cnt, false);
 
-                    this.sortableContours.push({ areaSize: area, perimiterSize: perim, contour: cnt });
+                    this.sortableContours.push({areaSize: area, perimiterSize: perim, contour: cnt});
                 }
 
-                this.sortableContours = this.sortableContours.sort((item1, item2) => { return (item1.areaSize > item2.areaSize) ? -1 : (item1.areaSize < item2.areaSize) ? 1 : 0; }).slice(0, 5);
+                this.sortableContours = this.sortableContours.sort((item1, item2) => {
+                    return (item1.areaSize > item2.areaSize) ? -1 : (item1.areaSize < item2.areaSize) ? 1 : 0;
+                }).slice(0, 5);
 
                 for (let i = 0; i < this.sortableContours.length; ++i) {
-                    
+
                     let cnt = this.sortableContours[i].contour;
                     let rect = cv.boundingRect(cnt);
                     let moments = cv.moments(cnt, false);
@@ -600,84 +754,84 @@
 
                     //console.log(this.sortableContours[i].areaSize);
 
-                    if(rect.width > this.workFrame.size().width*0.65 && rect.height > this.workFrame.size().height*0.65
-                        && rect.width < this.workFrame.size().width  && rect.height < this.workFrame.size().height
-                    
-                    ){
+                    if (rect.width > this.workFrame.size().width * 0.65 && rect.height > this.workFrame.size().height * 0.65
+                        && rect.width < this.workFrame.size().width && rect.height < this.workFrame.size().height
 
-                        let cx = moments.m10/moments.m00;
-                        let cy = moments.m01/moments.m00; 
+                    ) {
 
-                    
+                        let cx = moments.m10 / moments.m00;
+                        let cy = moments.m01 / moments.m00;
+
+
                         let point1, point2, recW, recH;
-                        this.px = rect.x*2; 
-                        this.py= rect.y*2;
-                        this.w = rect.width*2;
-                        this.h = rect.height*2;
-                        
-                        recW = rect.x*2 + rect.width*2;
-                        recH = rect.y*2 + rect.height*2;
+                        this.px = rect.x * 2;
+                        this.py = rect.y * 2;
+                        this.w = rect.width * 2;
+                        this.h = rect.height * 2;
 
-                        if( rect.height < 220 && rect.height > 160 ){
+                        recW = rect.x * 2 + rect.width * 2;
+                        recH = rect.y * 2 + rect.height * 2;
+
+                        if (rect.height < 220 && rect.height > 160) {
                             this.py -= 25;
                             recH += 10;
                             this.h += 10;
-                        }   
+                        }
 
-                        if( rect.width > 280 && rect.width < 340){
+                        if (rect.width > 280 && rect.width < 340) {
                             this.px -= 20;
                             recW += 20;
-                            this.w +=20;
+                            this.w += 20;
                         }
 
                         point1 = new cv.Point(this.px, this.py);
                         point2 = new cv.Point(recW, recH);
 
-                        
-                        cv.rectangle(this.frame, point1, point2, this.rectangleColor, 1, cv.LINE_AA, 0);
-                        
 
-                        if(this.faceClass !== undefined){
+                        cv.rectangle(this.frame, point1, point2, this.rectangleColor, 1, cv.LINE_AA, 0);
+
+
+                        if (this.faceClass !== undefined) {
 
                             cv.resize(this.frame, this.frameGray, dsize, 0, 0, cv.INTER_AREA);
-                            
-                            cv.cvtColor(this.frameGray, this.frameGray , cv.COLOR_RGBA2GRAY, 0);
-                            
+
+                            cv.cvtColor(this.frameGray, this.frameGray, cv.COLOR_RGBA2GRAY, 0);
+
                             this.faceClass.detectMultiScale(this.frameGray, this.faces, 1.5, 5, 0, this.msize, this.msize);
-                             
-                            if(this.faces.size() >= 1){
+
+                            if (this.faces.size() >= 1) {
                                 this.center = parseInt(cx) + parseInt(cy);
-                                
-                                
-                                for (let i=0;i<this.faces.size();i++) {
+
+
+                                for (let i = 0; i < this.faces.size(); i++) {
 
                                     let face = this.faces.get(i);
-                                    let point1 = new cv.Point(face.x*2, face.y*2); 
-                                    let point2 = new cv.Point(face.x*2 + face.width*2, face.y*2 + face.height*2);
-                                    cv.rectangle(this.frame, point1, point2, this.rectangleColor, 1 ,cv.LINE_AA, 0);
+                                    let point1 = new cv.Point(face.x * 2, face.y * 2);
+                                    let point2 = new cv.Point(face.x * 2 + face.width * 2, face.y * 2 + face.height * 2);
+                                    cv.rectangle(this.frame, point1, point2, this.rectangleColor, 1, cv.LINE_AA, 0);
                                 }
-                                
-                            }else{
+
+                            } else {
                                 this.detectProgress = 0
                             }
                         }
-                     
-                     }
-                     /*else{
-                         this.detectProgress = 0
-                     }*/
-                     cnt.delete();
-                  
+
+                    }
+                    /*else{
+                        this.detectProgress = 0
+                    }*/
+                    cnt.delete();
+
                 }
 
                 cv.imshow(this.$refs.canvas, this.frame);
                 //cv.imshow(this.$refs.canvas3, this.bitwise);
-                this.bitwise.delete(); 
+                this.bitwise.delete();
                 this.high.delete();
                 this.low.delete();
-                         
+
             },
-            clearAll(){
+            clearAll() {
                 this.streaming = false;
                 //Clear all Instances
                 this.inProcess = false;
@@ -690,60 +844,33 @@
                 this.faces.delete()
 
             },
-        
-            async detected(){
-                this.trackWindow = new cv.Rect(this.px,this.py,this.w,this.h);          
+
+            async detected() {
+                this.trackWindow = new cv.Rect(this.px, this.py, this.w, this.h);
                 this.roi = this.frame.roi(this.trackWindow);
                 cv.imshow(this.$refs.canvas2, this.roi);
-                
+
                 this.streaming = false;
                 this.reading = true;
                 const canvasImage = this.$refs.canvas2.toDataURL().split(',')[1]
                 const body = {
                     image: canvasImage,
                     type: 'normal',
-                }
-                
-                
-                try{
+                };
+
+
+
+                try {
                     let res = await axios.post('https://wcns07epuc.execute-api.us-east-1.amazonaws.com/Prod/textdetect', body);
                     this.reading = false;
+                    console.log(res.data)
+                    this.resultData = res.data;
                     this.$emit("recognition", res);
-                }catch{
+                } catch {
                     this.reading = false;
                 }
-                
+
             },
-            detectColor(type){
-
-                if(type == 'normal'){
-                    //Detect Color
-                    this.low = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), this.lowScalar);
-                    this.high = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), this.highScalar);
-                    cv.inRange(this.hsvRoi, this.low, this.high, this.maskColor);
-
-                    //Detect Contours
-                    cv.findContours(this.maskColor, this.contours, this.hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-                    return this.contours;
-                }
-
-                if(type == 'electronico'){
-                     //Detect Color
-                    this.low = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), this.lowScalarMilo);
-                    this.high = new cv.Mat(this.hsvRoi.rows, this.hsvRoi.cols, this.hsvRoi.type(), this.highScalarMilo);
-                    cv.inRange(this.hsvRoi, this.low, this.high, this.maskColor);
-
-                    
-                    //Detect Contours
-                    cv.findContours(this.maskColor, this.contoursMilo, this.hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-                    return this.contoursMilo;
-                    
-                }
-                
-                
-            },
-            
             /**
              * stop the selected streamed video to change camera
              */
@@ -758,11 +885,11 @@
 
                     this.$refs.video.srcObject = null;
                     this.source = null;
-                });     
-                
+                });
+
                 this.clearAll();
-                
-    
+
+
             },
 
             // stop the video   
@@ -784,7 +911,7 @@
                     this.$refs.video.play();
                 }
             },
-            changeFrontBack (newFrontCam) {
+            changeFrontBack(newFrontCam) {
                 if (newFrontCam && this.camsList.front) {
                     this.changeCamera(this.camsList.front.deviceId)
                 }
@@ -873,8 +1000,8 @@
 
                 return canvas;
             },
-            referenceCanvas(){
-                
+            referenceCanvas() {
+
             }
         }
     };
